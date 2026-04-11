@@ -7,7 +7,6 @@
         "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env ELECTRON_ENV=development electron .\"",
         "build": "vite build && electron-builder",
         "build:win": "vite build && electron-builder --win",
-        "build:mac": "vite build && electron-builder --mac",
         "build:linux": "vite build && electron-builder --linux",
         "preview": "vite preview"
     },
@@ -21,10 +20,6 @@
             "dist/**/*",
             "electron/**/*"
         ],
-        "mac": {
-            "category": "public.app-category.developer-tools",
-            "icon": "electron/assets/icon.icns"
-        },
         "win": {
             "icon": "electron/assets/icon.ico",
             "target": "nsis"
