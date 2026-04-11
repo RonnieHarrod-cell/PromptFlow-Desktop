@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg-primary: #0d0d0f;
+    --color-bg-secondary: #131316;
+    --color-bg-tertiary: #1a1a1f;
+    --color-bg-elevated: #1e1e24;
+    --color-border: rgba(255, 255, 255, 0.07);
+    --color-border-strong: rgba(255, 255, 255, 0.12);
+    --color-text-primary: #e8e8ed;
+    --color-text-secondary: #8e8e9a;
+    --color-text-muted: #4e4e5a;
+    --color-accent: #7c6cfc;
+    --color-accent-dim: rgba(124, 108, 252, 0.15);
+    --color-accent-border: rgba(124, 108, 252, 0.4);
+    --color-green: #3ecf8e;
+    --color-green-dim: rgba(62, 207, 142, 0.12);
+    --color-amber: #f59e0b;
+    --color-amber-dim: rgba(245, 158, 11, 0.12);
+    --color-red: #f87171;
+    --color-red-dim: rgba(248, 113, 113, 0.12);
+    --color-blue: #60a5fa;
+    --color-teal: #2dd4bf;
+    --color-pink: #f472b6;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    border: 2px solid var(--color-bg-primary);
+  }
+  input[type=range].green::-webkit-slider-thumb { background: var(--color-green); }
+}
