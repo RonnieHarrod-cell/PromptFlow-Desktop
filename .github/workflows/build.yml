@@ -37,11 +37,49 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Node & npm versions
-        run: node --version && npm --version
-
       - name: Install Linux packaging deps
-        run: sudo apt-get update -y && sudo apt-get install -y rpm fakeroot dpkg
+        run: sudo apt-get update -y && sudo apt-get install -y rpm fakeroot dpkg imagemagick
+
+      - name: Generate icons from PNG
+        run: |
+          # Ensure icon.png exists and generate sizes electron-builder needs
+          python3 -c "
+          import os, struct, zlib, math
+          def make_png(size):
+              img = []
+              cx, cy = size//2, size//2
+              r = size//2 - 2
+              scale = size / 256
+              for y in range(size):
+                  row = []
+                  for x in range(size):
+                      dx, dy = x-cx, y-cy
+                      in_bg = abs(dx) < r-int(8*scale) and abs(dy) < r-int(8*scale)
+                      ox, oy = x-(cx-int(r*0.5)), y-(cy-int(r*0.5))
+                      in_p = (int(20*scale)<ox<int(36*scale) and int(24*scale)<oy<int(80*scale)) or \
+                             (int(20*scale)<ox<int(60*scale) and int(24*scale)<oy<int(42*scale)) or \
+                             (int(44*scale)<ox<int(60*scale) and int(42*scale)<oy<int(58*scale))
+                      in_f = (int(70*scale)<ox<int(86*scale) and int(24*scale)<oy<int(80*scale)) or \
+                             (int(70*scale)<ox<int(110*scale) and int(24*scale)<oy<int(38*scale)) or \
+                             (int(70*scale)<ox<int(100*scale) and int(50*scale)<oy<int(58*scale))
+                      if in_bg:
+                          if in_p:   row += [124,108,252,255]
+                          elif in_f: row += [200,195,255,255]
+                          else:      row += [13,13,18,255]
+                      else:          row += [0,0,0,0]
+                  img.append(bytes(row))
+              def chunk(name,data):
+                  c=zlib.crc32(name+data)&0xffffffff
+                  return struct.pack('>I',len(data))+name+data+struct.pack('>I',c)
+              raw=b''.join(b'\x00'+r for r in img)
+              ihdr=struct.pack('>IIBBBBB',size,size,8,6,0,0,0)
+              return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',ihdr)+chunk(b'IDAT',zlib.compress(raw,9))+chunk(b'IEND',b'')
+          os.makedirs('electron/assets', exist_ok=True)
+          for s in [16,32,48,64,128,256,512]:
+              open(f'electron/assets/icon_{s}.png','wb').write(make_png(s))
+          open('electron/assets/icon.png','wb').write(make_png(512))
+          print('Icons generated')
+          "
 
       - name: Install dependencies
         run: npm install
@@ -103,8 +141,69 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Node & npm versions
-        run: node --version && npm --version
+      - name: Generate icons from PNG
+        shell: pwsh
+        run: |
+          # Generate a valid .ico file from scratch using PowerShell
+          python3 -c @"
+          import os, struct, zlib, math
+          def make_png(size):
+              img = []
+              cx, cy = size//2, size//2
+              r = size//2 - 2
+              scale = size / 256
+              for y in range(size):
+                  row = []
+                  for x in range(size):
+                      dx, dy = x-cx, y-cy
+                      in_bg = abs(dx) < r-int(8*scale) and abs(dy) < r-int(8*scale)
+                      ox, oy = x-(cx-int(r*0.5)), y-(cy-int(r*0.5))
+                      in_p = (int(20*scale)<ox<int(36*scale) and int(24*scale)<oy<int(80*scale)) or \
+                             (int(20*scale)<ox<int(60*scale) and int(24*scale)<oy<int(42*scale)) or \
+                             (int(44*scale)<ox<int(60*scale) and int(42*scale)<oy<int(58*scale))
+                      in_f = (int(70*scale)<ox<int(86*scale) and int(24*scale)<oy<int(80*scale)) or \
+                             (int(70*scale)<ox<int(110*scale) and int(24*scale)<oy<int(38*scale)) or \
+                             (int(70*scale)<ox<int(100*scale) and int(50*scale)<oy<int(58*scale))
+                      if in_bg:
+                          if in_p:   row += [124,108,252,255]
+                          elif in_f: row += [200,195,255,255]
+                          else:      row += [13,13,18,255]
+                      else:          row += [0,0,0,0]
+                  img.append(bytes(row))
+              def chunk(name,data):
+                  c=zlib.crc32(name+data)&0xffffffff
+                  return struct.pack('>I',len(data))+name+data+struct.pack('>I',c)
+              raw=b''.join(b'\x00'+r for r in img)
+              ihdr=struct.pack('>IIBBBBB',size,size,8,6,0,0,0)
+              return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',ihdr)+chunk(b'IDAT',zlib.compress(raw,9))+chunk(b'IEND',b'')
+
+          os.makedirs('electron/assets', exist_ok=True)
+          sizes = [16, 32, 48, 256]
+          pngs = [(s, make_png(s)) for s in sizes]
+
+          # Build a valid ICO file containing multiple PNG images
+          # ICO header: reserved(2) + type(2) + count(2)
+          count = len(pngs)
+          header = struct.pack('<HHH', 0, 1, count)
+          # Each directory entry is 16 bytes
+          dir_offset = 6 + count * 16
+          entries = b''
+          images = b''
+          offset = dir_offset
+          for size, png_data in pngs:
+              w = size if size < 256 else 0  # 0 means 256 in ICO format
+              h = size if size < 256 else 0
+              entries += struct.pack('<BBBBHHII', w, h, 0, 0, 1, 32, len(png_data), offset)
+              images += png_data
+              offset += len(png_data)
+
+          ico = header + entries + images
+          with open('electron/assets/icon.ico', 'wb') as f:
+              f.write(ico)
+          with open('electron/assets/icon.png', 'wb') as f:
+              f.write(make_png(512))
+          print(f'ICO written: {len(ico)} bytes with {count} images')
+          "@
 
       - name: Install dependencies
         run: npm install
