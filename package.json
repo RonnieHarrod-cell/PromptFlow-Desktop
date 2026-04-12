@@ -8,7 +8,9 @@
     "build": "vite build && electron-builder",
     "build:win": "vite build && electron-builder --win",
     "build:linux": "vite build && electron-builder --linux",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:vite": "vite build",
+    "build:electron": "electron-builder"
   },
   "build": {
     "appId": "com.promptflow.studio",
@@ -89,6 +91,6 @@
   },
   "author": {
     "name": "PromptFlow Studio",
-    "email": "hello@promptflow.dev"
+    "email": "ronnieharrod43@gmail.com"
   }
 }

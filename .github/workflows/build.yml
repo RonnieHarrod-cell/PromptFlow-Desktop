@@ -38,67 +38,64 @@ jobs:
           node-version: '24'
 
       - name: Install Linux packaging deps
-        run: sudo apt-get update -y && sudo apt-get install -y rpm fakeroot dpkg imagemagick
-
-      - name: Generate icons from PNG
         run: |
-          # Ensure icon.png exists and generate sizes electron-builder needs
+          sudo apt-get update -y
+          sudo apt-get install -y fakeroot dpkg rpm
+
+      - name: Install fpm via Ruby gem (avoids wrong-arch binary from electron-builder)
+        run: |
+          sudo gem install fpm --no-document
+          fpm --version
+
+      - name: Generate icon
+        run: |
           python3 -c "
-          import os, struct, zlib, math
-          def make_png(size):
-              img = []
-              cx, cy = size//2, size//2
-              r = size//2 - 2
-              scale = size / 256
+          import os, struct, zlib
+          def png(size):
+              img=[]
+              cx,cy=size//2,size//2
+              r=size//2-2
+              s=size/256
               for y in range(size):
-                  row = []
+                  row=[]
                   for x in range(size):
-                      dx, dy = x-cx, y-cy
-                      in_bg = abs(dx) < r-int(8*scale) and abs(dy) < r-int(8*scale)
-                      ox, oy = x-(cx-int(r*0.5)), y-(cy-int(r*0.5))
-                      in_p = (int(20*scale)<ox<int(36*scale) and int(24*scale)<oy<int(80*scale)) or \
-                             (int(20*scale)<ox<int(60*scale) and int(24*scale)<oy<int(42*scale)) or \
-                             (int(44*scale)<ox<int(60*scale) and int(42*scale)<oy<int(58*scale))
-                      in_f = (int(70*scale)<ox<int(86*scale) and int(24*scale)<oy<int(80*scale)) or \
-                             (int(70*scale)<ox<int(110*scale) and int(24*scale)<oy<int(38*scale)) or \
-                             (int(70*scale)<ox<int(100*scale) and int(50*scale)<oy<int(58*scale))
-                      if in_bg:
-                          if in_p:   row += [124,108,252,255]
-                          elif in_f: row += [200,195,255,255]
-                          else:      row += [13,13,18,255]
-                      else:          row += [0,0,0,0]
+                      dx,dy=x-cx,y-cy
+                      ib=abs(dx)<r-int(8*s) and abs(dy)<r-int(8*s)
+                      ox,oy=x-(cx-int(r*0.5)),y-(cy-int(r*0.5))
+                      ip=(int(20*s)<ox<int(36*s) and int(24*s)<oy<int(80*s)) or (int(20*s)<ox<int(60*s) and int(24*s)<oy<int(42*s)) or (int(44*s)<ox<int(60*s) and int(42*s)<oy<int(58*s))
+                      if_=(int(70*s)<ox<int(86*s) and int(24*s)<oy<int(80*s)) or (int(70*s)<ox<int(110*s) and int(24*s)<oy<int(38*s)) or (int(70*s)<ox<int(100*s) and int(50*s)<oy<int(58*s))
+                      if ib:
+                          if ip: row+=[124,108,252,255]
+                          elif if_: row+=[200,195,255,255]
+                          else: row+=[13,13,18,255]
+                      else: row+=[0,0,0,0]
                   img.append(bytes(row))
-              def chunk(name,data):
-                  c=zlib.crc32(name+data)&0xffffffff
-                  return struct.pack('>I',len(data))+name+data+struct.pack('>I',c)
+              def ch(n,d): c=zlib.crc32(n+d)&0xffffffff; return struct.pack('>I',len(d))+n+d+struct.pack('>I',c)
               raw=b''.join(b'\x00'+r for r in img)
-              ihdr=struct.pack('>IIBBBBB',size,size,8,6,0,0,0)
-              return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',ihdr)+chunk(b'IDAT',zlib.compress(raw,9))+chunk(b'IEND',b'')
-          os.makedirs('electron/assets', exist_ok=True)
-          for s in [16,32,48,64,128,256,512]:
-              open(f'electron/assets/icon_{s}.png','wb').write(make_png(s))
-          open('electron/assets/icon.png','wb').write(make_png(512))
-          print('Icons generated')
+              ih=struct.pack('>IIBBBBB',size,size,8,6,0,0,0)
+              return b'\x89PNG\r\n\x1a\n'+ch(b'IHDR',ih)+ch(b'IDAT',zlib.compress(raw,9))+ch(b'IEND',b'')
+          os.makedirs('electron/assets',exist_ok=True)
+          open('electron/assets/icon.png','wb').write(png(512))
+          print('icon.png written')
           "
 
       - name: Install dependencies
         run: npm install
 
       - name: Build Vite bundle
-        run: npm run build
+        run: npm run build:vite
         env:
           NODE_ENV: production
 
-      - name: Build AppImage + deb
-        run: npx electron-builder --linux AppImage deb --${{ matrix.eb_arch }} --publish never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build AppImage
+        run: npx electron-builder --linux AppImage --${{ matrix.eb_arch }} --publish never
+
+      - name: Build deb
+        run: USE_SYSTEM_FPM=true npx electron-builder --linux deb --${{ matrix.eb_arch }} --publish never
 
       - name: Build rpm (x86-64 only)
         if: matrix.arch == 'x86-64'
-        run: npx electron-builder --linux rpm --x64 --publish never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: USE_SYSTEM_FPM=true npx electron-builder --linux rpm --x64 --publish never
 
       - name: List output
         run: ls -lh dist-electron/
@@ -141,82 +138,59 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Generate icons from PNG
-        shell: pwsh
+      - name: Generate icon.ico
+        shell: python
         run: |
-          # Generate a valid .ico file from scratch using PowerShell
-          python3 -c @"
-          import os, struct, zlib, math
-          def make_png(size):
-              img = []
-              cx, cy = size//2, size//2
-              r = size//2 - 2
-              scale = size / 256
+          import os, struct, zlib
+          def png(size):
+              img=[]
+              cx,cy=size//2,size//2
+              r=size//2-2
+              s=size/256
               for y in range(size):
-                  row = []
+                  row=[]
                   for x in range(size):
-                      dx, dy = x-cx, y-cy
-                      in_bg = abs(dx) < r-int(8*scale) and abs(dy) < r-int(8*scale)
-                      ox, oy = x-(cx-int(r*0.5)), y-(cy-int(r*0.5))
-                      in_p = (int(20*scale)<ox<int(36*scale) and int(24*scale)<oy<int(80*scale)) or \
-                             (int(20*scale)<ox<int(60*scale) and int(24*scale)<oy<int(42*scale)) or \
-                             (int(44*scale)<ox<int(60*scale) and int(42*scale)<oy<int(58*scale))
-                      in_f = (int(70*scale)<ox<int(86*scale) and int(24*scale)<oy<int(80*scale)) or \
-                             (int(70*scale)<ox<int(110*scale) and int(24*scale)<oy<int(38*scale)) or \
-                             (int(70*scale)<ox<int(100*scale) and int(50*scale)<oy<int(58*scale))
-                      if in_bg:
-                          if in_p:   row += [124,108,252,255]
-                          elif in_f: row += [200,195,255,255]
-                          else:      row += [13,13,18,255]
-                      else:          row += [0,0,0,0]
+                      dx,dy=x-cx,y-cy
+                      ib=abs(dx)<r-int(8*s) and abs(dy)<r-int(8*s)
+                      ox,oy=x-(cx-int(r*0.5)),y-(cy-int(r*0.5))
+                      ip=(int(20*s)<ox<int(36*s) and int(24*s)<oy<int(80*s)) or (int(20*s)<ox<int(60*s) and int(24*s)<oy<int(42*s)) or (int(44*s)<ox<int(60*s) and int(42*s)<oy<int(58*s))
+                      if_=(int(70*s)<ox<int(86*s) and int(24*s)<oy<int(80*s)) or (int(70*s)<ox<int(110*s) and int(24*s)<oy<int(38*s)) or (int(70*s)<ox<int(100*s) and int(50*s)<oy<int(58*s))
+                      if ib:
+                          if ip: row+=[124,108,252,255]
+                          elif if_: row+=[200,195,255,255]
+                          else: row+=[13,13,18,255]
+                      else: row+=[0,0,0,0]
                   img.append(bytes(row))
-              def chunk(name,data):
-                  c=zlib.crc32(name+data)&0xffffffff
-                  return struct.pack('>I',len(data))+name+data+struct.pack('>I',c)
+              def ch(n,d): c=zlib.crc32(n+d)&0xffffffff; return struct.pack('>I',len(d))+n+d+struct.pack('>I',c)
               raw=b''.join(b'\x00'+r for r in img)
-              ihdr=struct.pack('>IIBBBBB',size,size,8,6,0,0,0)
-              return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',ihdr)+chunk(b'IDAT',zlib.compress(raw,9))+chunk(b'IEND',b'')
-
+              ih=struct.pack('>IIBBBBB',size,size,8,6,0,0,0)
+              return b'\x89PNG\r\n\x1a\n'+ch(b'IHDR',ih)+ch(b'IDAT',zlib.compress(raw,9))+ch(b'IEND',b'')
           os.makedirs('electron/assets', exist_ok=True)
-          sizes = [16, 32, 48, 256]
-          pngs = [(s, make_png(s)) for s in sizes]
-
-          # Build a valid ICO file containing multiple PNG images
-          # ICO header: reserved(2) + type(2) + count(2)
-          count = len(pngs)
-          header = struct.pack('<HHH', 0, 1, count)
-          # Each directory entry is 16 bytes
-          dir_offset = 6 + count * 16
-          entries = b''
-          images = b''
-          offset = dir_offset
-          for size, png_data in pngs:
-              w = size if size < 256 else 0  # 0 means 256 in ICO format
-              h = size if size < 256 else 0
-              entries += struct.pack('<BBBBHHII', w, h, 0, 0, 1, 32, len(png_data), offset)
-              images += png_data
-              offset += len(png_data)
-
-          ico = header + entries + images
-          with open('electron/assets/icon.ico', 'wb') as f:
-              f.write(ico)
-          with open('electron/assets/icon.png', 'wb') as f:
-              f.write(make_png(512))
-          print(f'ICO written: {len(ico)} bytes with {count} images')
-          "@
+          sizes=[16,32,48,256]
+          pngs=[(s,png(s)) for s in sizes]
+          count=len(pngs)
+          header=struct.pack('<HHH',0,1,count)
+          dir_offset=6+count*16
+          entries=b''; images=b''; offset=dir_offset
+          for size,data in pngs:
+              w=size if size<256 else 0; h=w
+              entries+=struct.pack('<BBBBHHII',w,h,0,0,1,32,len(data),offset)
+              images+=data; offset+=len(data)
+          ico=header+entries+images
+          open('electron/assets/icon.ico','wb').write(ico)
+          open('electron/assets/icon.png','wb').write(png(512))
+          print(f'ICO: {len(ico)} bytes, PNG: written')
 
       - name: Install dependencies
         run: npm install
 
       - name: Build Vite bundle
-        run: npm run build
+        run: npm run build:vite
         env:
           NODE_ENV: production
 
       - name: Build NSIS installer
         run: npx electron-builder --win nsis --${{ matrix.arch }} --publish never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List output
         run: Get-ChildItem dist-electron\ | Format-Table Name, Length
