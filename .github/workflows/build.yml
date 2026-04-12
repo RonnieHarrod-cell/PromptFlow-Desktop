@@ -37,53 +37,61 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Install Linux packaging deps
+      - name: Install system deps
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y fakeroot dpkg rpm
-
-      - name: Install fpm via Ruby gem (avoids wrong-arch binary from electron-builder)
-        run: |
+          sudo apt-get install -y fakeroot dpkg rpm ruby-dev build-essential
           sudo gem install fpm --no-document
           fpm --version
 
-      - name: Generate icon
+      - name: Generate PNG icon
         run: |
-          python3 -c "
+          python3 << 'PYEOF'
           import os, struct, zlib
-          def png(size):
-              img=[]
-              cx,cy=size//2,size//2
-              r=size//2-2
-              s=size/256
+          def make_png(size):
+              rows = []
+              cx, cy = size // 2, size // 2
+              r = size // 2 - 2
+              sc = size / 256
               for y in range(size):
-                  row=[]
+                  row = []
                   for x in range(size):
-                      dx,dy=x-cx,y-cy
-                      ib=abs(dx)<r-int(8*s) and abs(dy)<r-int(8*s)
-                      ox,oy=x-(cx-int(r*0.5)),y-(cy-int(r*0.5))
-                      ip=(int(20*s)<ox<int(36*s) and int(24*s)<oy<int(80*s)) or (int(20*s)<ox<int(60*s) and int(24*s)<oy<int(42*s)) or (int(44*s)<ox<int(60*s) and int(42*s)<oy<int(58*s))
-                      if_=(int(70*s)<ox<int(86*s) and int(24*s)<oy<int(80*s)) or (int(70*s)<ox<int(110*s) and int(24*s)<oy<int(38*s)) or (int(70*s)<ox<int(100*s) and int(50*s)<oy<int(58*s))
-                      if ib:
-                          if ip: row+=[124,108,252,255]
-                          elif if_: row+=[200,195,255,255]
-                          else: row+=[13,13,18,255]
-                      else: row+=[0,0,0,0]
-                  img.append(bytes(row))
-              def ch(n,d): c=zlib.crc32(n+d)&0xffffffff; return struct.pack('>I',len(d))+n+d+struct.pack('>I',c)
-              raw=b''.join(b'\x00'+r for r in img)
-              ih=struct.pack('>IIBBBBB',size,size,8,6,0,0,0)
-              return b'\x89PNG\r\n\x1a\n'+ch(b'IHDR',ih)+ch(b'IDAT',zlib.compress(raw,9))+ch(b'IEND',b'')
-          os.makedirs('electron/assets',exist_ok=True)
-          open('electron/assets/icon.png','wb').write(png(512))
-          print('icon.png written')
-          "
+                      in_bg = abs(x - cx) < r - int(8 * sc) and abs(y - cy) < r - int(8 * sc)
+                      ox = x - (cx - int(r * 0.5))
+                      oy = y - (cy - int(r * 0.5))
+                      s = sc
+                      in_p = (int(20*s)<ox<int(36*s) and int(24*s)<oy<int(80*s)) or \
+                             (int(20*s)<ox<int(60*s) and int(24*s)<oy<int(42*s)) or \
+                             (int(44*s)<ox<int(60*s) and int(42*s)<oy<int(58*s))
+                      in_f = (int(70*s)<ox<int(86*s) and int(24*s)<oy<int(80*s)) or \
+                             (int(70*s)<ox<int(110*s) and int(24*s)<oy<int(38*s)) or \
+                             (int(70*s)<ox<int(100*s) and int(50*s)<oy<int(58*s))
+                      if in_bg:
+                          if in_p:   row += [124, 108, 252, 255]
+                          elif in_f: row += [200, 195, 255, 255]
+                          else:      row += [13, 13, 18, 255]
+                      else:          row += [0, 0, 0, 0]
+                  rows.append(bytes(row))
+              def chunk(name, data):
+                  crc = zlib.crc32(name + data) & 0xFFFFFFFF
+                  return struct.pack('>I', len(data)) + name + data + struct.pack('>I', crc)
+              raw = b''.join(b'\x00' + r for r in rows)
+              ihdr = struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0)
+              return (b'\x89PNG\r\n\x1a\n' +
+                      chunk(b'IHDR', ihdr) +
+                      chunk(b'IDAT', zlib.compress(raw, 9)) +
+                      chunk(b'IEND', b''))
+          os.makedirs('electron/assets', exist_ok=True)
+          with open('electron/assets/icon.png', 'wb') as f:
+              f.write(make_png(512))
+          print('icon.png generated')
+          PYEOF
 
-      - name: Install dependencies
+      - name: Install npm dependencies
         run: npm install
 
-      - name: Build Vite bundle
-        run: npm run build:vite
+      - name: Build Vite
+        run: npx vite build
         env:
           NODE_ENV: production
 
@@ -97,17 +105,17 @@ jobs:
         if: matrix.arch == 'x86-64'
         run: USE_SYSTEM_FPM=true npx electron-builder --linux rpm --x64 --publish never
 
-      - name: List output
+      - name: List dist-electron
         run: ls -lh dist-electron/
 
       - name: Collect artifacts
         run: |
           mkdir -p release-artifacts
-          arch=${{ matrix.arch == 'x86-64' && 'amd64' || 'arm64' }}
-          find dist-electron -maxdepth 1 -name "*.AppImage" -exec cp {} release-artifacts/PromptFlow-main-${arch}.AppImage \;
-          find dist-electron -maxdepth 1 -name "*.deb"      -exec cp {} release-artifacts/PromptFlow-main-${arch}.deb \;
+          arch="${{ matrix.arch == 'x86-64' && 'amd64' || 'arm64' }}"
+          find dist-electron -maxdepth 1 -name "*.AppImage" -exec cp {} "release-artifacts/PromptFlow-main-${arch}.AppImage" \;
+          find dist-electron -maxdepth 1 -name "*.deb"      -exec cp {} "release-artifacts/PromptFlow-main-${arch}.deb" \;
           if [ "${{ matrix.arch }}" = "x86-64" ]; then
-            find dist-electron -maxdepth 1 -name "*.rpm" -exec cp {} release-artifacts/PromptFlow-main-x86_64.rpm \;
+            find dist-electron -maxdepth 1 -name "*.rpm" -exec cp {} "release-artifacts/PromptFlow-main-x86_64.rpm" \;
           fi
           ls -lh release-artifacts/
 
@@ -142,65 +150,84 @@ jobs:
         shell: python
         run: |
           import os, struct, zlib
-          def png(size):
-              img=[]
-              cx,cy=size//2,size//2
-              r=size//2-2
-              s=size/256
-              for y in range(size):
-                  row=[]
-                  for x in range(size):
-                      dx,dy=x-cx,y-cy
-                      ib=abs(dx)<r-int(8*s) and abs(dy)<r-int(8*s)
-                      ox,oy=x-(cx-int(r*0.5)),y-(cy-int(r*0.5))
-                      ip=(int(20*s)<ox<int(36*s) and int(24*s)<oy<int(80*s)) or (int(20*s)<ox<int(60*s) and int(24*s)<oy<int(42*s)) or (int(44*s)<ox<int(60*s) and int(42*s)<oy<int(58*s))
-                      if_=(int(70*s)<ox<int(86*s) and int(24*s)<oy<int(80*s)) or (int(70*s)<ox<int(110*s) and int(24*s)<oy<int(38*s)) or (int(70*s)<ox<int(100*s) and int(50*s)<oy<int(58*s))
-                      if ib:
-                          if ip: row+=[124,108,252,255]
-                          elif if_: row+=[200,195,255,255]
-                          else: row+=[13,13,18,255]
-                      else: row+=[0,0,0,0]
-                  img.append(bytes(row))
-              def ch(n,d): c=zlib.crc32(n+d)&0xffffffff; return struct.pack('>I',len(d))+n+d+struct.pack('>I',c)
-              raw=b''.join(b'\x00'+r for r in img)
-              ih=struct.pack('>IIBBBBB',size,size,8,6,0,0,0)
-              return b'\x89PNG\r\n\x1a\n'+ch(b'IHDR',ih)+ch(b'IDAT',zlib.compress(raw,9))+ch(b'IEND',b'')
-          os.makedirs('electron/assets', exist_ok=True)
-          sizes=[16,32,48,256]
-          pngs=[(s,png(s)) for s in sizes]
-          count=len(pngs)
-          header=struct.pack('<HHH',0,1,count)
-          dir_offset=6+count*16
-          entries=b''; images=b''; offset=dir_offset
-          for size,data in pngs:
-              w=size if size<256 else 0; h=w
-              entries+=struct.pack('<BBBBHHII',w,h,0,0,1,32,len(data),offset)
-              images+=data; offset+=len(data)
-          ico=header+entries+images
-          open('electron/assets/icon.ico','wb').write(ico)
-          open('electron/assets/icon.png','wb').write(png(512))
-          print(f'ICO: {len(ico)} bytes, PNG: written')
 
-      - name: Install dependencies
+          def make_png(size):
+              rows = []
+              cx, cy = size // 2, size // 2
+              r = size // 2 - 2
+              sc = size / 256
+              for y in range(size):
+                  row = []
+                  for x in range(size):
+                      in_bg = abs(x - cx) < r - int(8 * sc) and abs(y - cy) < r - int(8 * sc)
+                      ox = x - (cx - int(r * 0.5))
+                      oy = y - (cy - int(r * 0.5))
+                      s = sc
+                      in_p = (int(20*s)<ox<int(36*s) and int(24*s)<oy<int(80*s)) or \
+                             (int(20*s)<ox<int(60*s) and int(24*s)<oy<int(42*s)) or \
+                             (int(44*s)<ox<int(60*s) and int(42*s)<oy<int(58*s))
+                      in_f = (int(70*s)<ox<int(86*s) and int(24*s)<oy<int(80*s)) or \
+                             (int(70*s)<ox<int(110*s) and int(24*s)<oy<int(38*s)) or \
+                             (int(70*s)<ox<int(100*s) and int(50*s)<oy<int(58*s))
+                      if in_bg:
+                          if in_p:   row += [124, 108, 252, 255]
+                          elif in_f: row += [200, 195, 255, 255]
+                          else:      row += [13, 13, 18, 255]
+                      else:          row += [0, 0, 0, 0]
+                  rows.append(bytes(row))
+              def chunk(name, data):
+                  crc = zlib.crc32(name + data) & 0xFFFFFFFF
+                  return struct.pack('>I', len(data)) + name + data + struct.pack('>I', crc)
+              raw = b''.join(b'\x00' + r for r in rows)
+              ihdr = struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0)
+              return (b'\x89PNG\r\n\x1a\n' +
+                      chunk(b'IHDR', ihdr) +
+                      chunk(b'IDAT', zlib.compress(raw, 9)) +
+                      chunk(b'IEND', b''))
+
+          def make_ico(sizes):
+              pngs = [(s, make_png(s)) for s in sizes]
+              count = len(pngs)
+              header = struct.pack('<HHH', 0, 1, count)
+              dir_offset = 6 + count * 16
+              entries = b''
+              images = b''
+              offset = dir_offset
+              for size, data in pngs:
+                  w = size if size < 256 else 0
+                  entries += struct.pack('<BBBBHHII', w, w, 0, 0, 1, 32, len(data), offset)
+                  images += data
+                  offset += len(data)
+              return header + entries + images
+
+          os.makedirs('electron/assets', exist_ok=True)
+          with open('electron/assets/icon.ico', 'wb') as f:
+              f.write(make_ico([16, 32, 48, 256]))
+          with open('electron/assets/icon.png', 'wb') as f:
+              f.write(make_png(512))
+          print('Icons generated successfully')
+
+      - name: Install npm dependencies
         run: npm install
 
-      - name: Build Vite bundle
-        run: npm run build:vite
+      - name: Build Vite
+        run: npx vite build
         env:
           NODE_ENV: production
 
       - name: Build NSIS installer
         run: npx electron-builder --win nsis --${{ matrix.arch }} --publish never
 
-      - name: List output
-        run: Get-ChildItem dist-electron\ | Format-Table Name, Length
+      - name: List dist-electron
         shell: pwsh
+        run: Get-ChildItem dist-electron\ | Format-Table Name, Length
 
       - name: Collect artifact
         shell: bash
         run: |
           mkdir -p release-artifacts
-          find dist-electron -maxdepth 1 -name "*.exe" -exec cp {} release-artifacts/${{ matrix.filename }} \;
+          find dist-electron -maxdepth 1 -name "*.exe" \
+            -exec cp {} "release-artifacts/${{ matrix.filename }}" \;
           ls -lh release-artifacts/
 
       - uses: actions/upload-artifact@v4
@@ -220,7 +247,8 @@ jobs:
           path: release-artifacts
           merge-multiple: true
 
-      - run: ls -lh release-artifacts/
+      - name: List release files
+        run: ls -lh release-artifacts/
 
       - uses: softprops/action-gh-release@v2
         with:
