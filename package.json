@@ -1,51 +1,90 @@
 {
-    "name": "promptflow-studio",
-    "version": "1.0.0",
-    "description": "A specialized IDE for prompt engineering with live preview and A/B testing",
-    "main": "electron/main.js",
-    "scripts": {
-        "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env ELECTRON_ENV=development electron .\"",
-        "build": "vite build && electron-builder",
-        "build:win": "vite build && electron-builder --win",
-        "build:linux": "vite build && electron-builder --linux",
-        "preview": "vite preview"
+  "name": "promptflow-studio",
+  "version": "1.0.0",
+  "description": "A specialized IDE for prompt engineering with live preview and A/B testing",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env ELECTRON_ENV=development electron .\"",
+    "build": "vite build && electron-builder",
+    "build:win": "vite build && electron-builder --win",
+    "build:linux": "vite build && electron-builder --linux",
+    "preview": "vite preview"
+  },
+  "build": {
+    "appId": "com.promptflow.studio",
+    "productName": "PromptFlow",
+    "directories": {
+      "output": "dist-electron"
     },
-    "build": {
-        "appId": "com.promptflow.studio",
-        "productName": "PromptFlow Studio",
-        "directories": {
-            "output": "dist-electron"
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "linux": {
+      "icon": "electron/assets/icon.png",
+      "category": "Development",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
-        "files": [
-            "dist/**/*",
-            "electron/**/*"
-        ],
-        "win": {
-            "icon": "electron/assets/icon.ico",
-            "target": "nsis"
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
-        "linux": {
-            "icon": "electron/assets/icon.png",
-            "target": "AppImage"
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
         }
+      ]
     },
-    "dependencies": {
-        "react": "^18.2.0",
-        "react-dom": "^18.2.0",
-        "@monaco-editor/react": "^4.6.0",
-        "monaco-editor": "^0.44.0",
-        "lucide-react": "^0.383.0"
+    "win": {
+      "icon": "electron/assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64",
+            "ia32"
+          ]
+        }
+      ]
     },
-    "devDependencies": {
-        "@vitejs/plugin-react": "^4.2.1",
-        "autoprefixer": "^10.4.17",
-        "concurrently": "^8.2.2",
-        "cross-env": "^7.0.3",
-        "electron": "^28.2.0",
-        "electron-builder": "^24.9.1",
-        "postcss": "^8.4.35",
-        "tailwindcss": "^3.4.1",
-        "vite": "^5.0.12",
-        "wait-on": "^7.2.0"
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "electron/assets/icon.ico",
+      "uninstallerIcon": "electron/assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@monaco-editor/react": "^4.6.0",
+    "monaco-editor": "^0.44.0",
+    "lucide-react": "^0.383.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^28.2.0",
+    "electron-builder": "^24.9.1",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.0.12",
+    "wait-on": "^7.2.0"
+  }
 }
