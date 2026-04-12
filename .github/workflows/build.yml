@@ -8,15 +8,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
-  contents: write   # needed to upload release assets
+  contents: write
 
 jobs:
 
-  # ─────────────────────────────────────────────
-  # Linux — x86-64: AppImage + .deb + .rpm
-  # Linux — ARM64:  AppImage + .deb
-  # ─────────────────────────────────────────────
   build-linux:
     name: Linux (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
@@ -32,75 +31,57 @@ jobs:
             eb_arch: arm64
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          
+
+      - name: Node & npm versions
+        run: node --version && npm --version
+
+      - name: Install Linux packaging deps
+        run: sudo apt-get update -y && sudo apt-get install -y rpm fakeroot dpkg
 
       - name: Install dependencies
         run: npm install
 
-      - name: Install Linux packaging deps (x86-64 only)
-        if: matrix.arch == 'x86-64'
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y rpm
-
       - name: Build Vite bundle
         run: npm run build
+        env:
+          NODE_ENV: production
 
-      - name: Build Electron — AppImage + deb (both arches)
-        run: |
-          npx electron-builder \
-            --linux AppImage deb \
-            --${{ matrix.eb_arch }}
+      - name: Build AppImage + deb
+        run: npx electron-builder --linux AppImage deb --${{ matrix.eb_arch }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Electron — rpm (x86-64 only)
+      - name: Build rpm (x86-64 only)
         if: matrix.arch == 'x86-64'
-        run: |
-          npx electron-builder \
-            --linux rpm \
-            --x64
+        run: npx electron-builder --linux rpm --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Rename artifacts to match release naming convention
+      - name: List output
+        run: ls -lh dist-electron/
+
+      - name: Collect artifacts
         run: |
           mkdir -p release-artifacts
           arch=${{ matrix.arch == 'x86-64' && 'amd64' || 'arm64' }}
-
-          # AppImage
-          find dist-electron -name "*.AppImage" -exec \
-            cp {} release-artifacts/PromptFlow-main-${arch}.AppImage \;
-
-          # .deb
-          find dist-electron -name "*.deb" -exec \
-            cp {} release-artifacts/PromptFlow-main-${arch}.deb \;
-
-          # .rpm (x86-64 only)
+          find dist-electron -maxdepth 1 -name "*.AppImage" -exec cp {} release-artifacts/PromptFlow-main-${arch}.AppImage \;
+          find dist-electron -maxdepth 1 -name "*.deb"      -exec cp {} release-artifacts/PromptFlow-main-${arch}.deb \;
           if [ "${{ matrix.arch }}" = "x86-64" ]; then
-            find dist-electron -name "*.rpm" -exec \
-              cp {} release-artifacts/PromptFlow-main-x86_64.rpm \;
+            find dist-electron -maxdepth 1 -name "*.rpm" -exec cp {} release-artifacts/PromptFlow-main-x86_64.rpm \;
           fi
-
           ls -lh release-artifacts/
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}
           path: release-artifacts/*
           retention-days: 7
 
-  # ─────────────────────────────────────────────
-  # Windows — x64 .exe + ARM64 .exe + ia32 .exe
-  # ─────────────────────────────────────────────
   build-windows:
     name: Windows (${{ matrix.arch }})
     runs-on: windows-latest
@@ -109,73 +90,66 @@ jobs:
       matrix:
         include:
           - arch: x64
-            label: x64
             filename: PromptFlow-Setup-main-x64.exe
           - arch: arm64
-            label: arm64
             filename: PromptFlow-Setup-main-arm64.exe
           - arch: ia32
-            label: ia32
             filename: PromptFlow-Setup-main-ia32.exe
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          
+
+      - name: Node & npm versions
+        run: node --version && npm --version
 
       - name: Install dependencies
         run: npm install
 
       - name: Build Vite bundle
         run: npm run build
+        env:
+          NODE_ENV: production
 
-      - name: Build Electron NSIS installer
-        run: |
-          npx electron-builder --win nsis --${{ matrix.arch }}
+      - name: Build NSIS installer
+        run: npx electron-builder --win nsis --${{ matrix.arch }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Rename artifact
+      - name: List output
+        run: Get-ChildItem dist-electron\ | Format-Table Name, Length
+        shell: pwsh
+
+      - name: Collect artifact
         shell: bash
         run: |
           mkdir -p release-artifacts
-          find dist-electron -name "*.exe" -exec \
-            cp {} release-artifacts/${{ matrix.filename }} \;
+          find dist-electron -maxdepth 1 -name "*.exe" -exec cp {} release-artifacts/${{ matrix.filename }} \;
           ls -lh release-artifacts/
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.arch }}
           path: release-artifacts/${{ matrix.filename }}
           retention-days: 7
 
-  # ─────────────────────────────────────────────
-  # GitHub Release — only on version tags (v*)
-  # ─────────────────────────────────────────────
   release:
     name: Publish Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
-
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: release-artifacts
           merge-multiple: true
 
-      - name: List release files
-        run: ls -lh release-artifacts/
+      - run: ls -lh release-artifacts/
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           name: PromptFlow Studio ${{ github.ref_name }}
           draft: false
