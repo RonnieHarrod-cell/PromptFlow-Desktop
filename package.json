@@ -68,14 +68,23 @@
       "uninstallerIcon": "electron/assets/icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "RonnieHarrod-cell",
+        "repo": "PromptFlow-Desktop"
+      }
+    ]
   },
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@monaco-editor/react": "^4.6.0",
     "monaco-editor": "^0.44.0",
-    "lucide-react": "^0.383.0"
+    "lucide-react": "^0.383.0",
+    "electron-updater": "^6.1.7",
+    "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
