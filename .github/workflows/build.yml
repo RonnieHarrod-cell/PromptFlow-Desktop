@@ -111,11 +111,12 @@ jobs:
       - name: Collect artifacts
         run: |
           mkdir -p release-artifacts
-          arch="${{ matrix.arch == 'x86-64' && 'amd64' || 'arm64' }}"
-          find dist-electron -maxdepth 1 -name "*.AppImage" -exec cp {} "release-artifacts/PromptFlow-main-${arch}.AppImage" \;
-          find dist-electron -maxdepth 1 -name "*.deb"      -exec cp {} "release-artifacts/PromptFlow-main-${arch}.deb" \;
+          VERSION=$(node -p "require('./package.json').version")
+          arch="${{ matrix.arch == 'x86-64' && 'x86_64' || 'arm64' }}"
+          find dist-electron -maxdepth 1 -name "*.AppImage" -exec cp {} "release-artifacts/PromptFlow-${VERSION}-${arch}.AppImage" \;
+          find dist-electron -maxdepth 1 -name "*.deb"      -exec cp {} "release-artifacts/PromptFlow-${VERSION}-${arch}.deb" \;
           if [ "${{ matrix.arch }}" = "x86-64" ]; then
-            find dist-electron -maxdepth 1 -name "*.rpm" -exec cp {} "release-artifacts/PromptFlow-main-x86_64.rpm" \;
+            find dist-electron -maxdepth 1 -name "*.rpm" -exec cp {} "release-artifacts/PromptFlow-${VERSION}-x86_64.rpm" \;
           fi
           ls -lh release-artifacts/
 
@@ -133,11 +134,8 @@ jobs:
       matrix:
         include:
           - arch: x64
-            filename: PromptFlow-Setup-main-x64.exe
           - arch: arm64
-            filename: PromptFlow-Setup-main-arm64.exe
           - arch: ia32
-            filename: PromptFlow-Setup-main-ia32.exe
 
     steps:
       - uses: actions/checkout@v4
@@ -226,14 +224,15 @@ jobs:
         shell: bash
         run: |
           mkdir -p release-artifacts
+          VERSION=$(node -p "require('./package.json').version")
           find dist-electron -maxdepth 1 -name "*.exe" \
-            -exec cp {} "release-artifacts/${{ matrix.filename }}" \;
+            -exec cp {} "release-artifacts/PromptFlow-${VERSION}-${{ matrix.arch }}.exe" \;
           ls -lh release-artifacts/
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.arch }}
-          path: release-artifacts/${{ matrix.filename }}
+          path: release-artifacts/*.exe
           retention-days: 7
 
   release:

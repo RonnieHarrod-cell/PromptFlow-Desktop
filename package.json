@@ -1,6 +1,6 @@
 {
   "name": "promptflow-studio",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A specialized IDE for prompt engineering with live preview and A/B testing",
   "main": "electron/main.js",
   "scripts": {
