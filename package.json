@@ -84,7 +84,7 @@
     "monaco-editor": "^0.44.0",
     "lucide-react": "^0.383.0",
     "electron-updater": "^6.1.7",
-    "@supabase/supabase-js": "^2.39.0"
+    "firebase": "^10.8.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

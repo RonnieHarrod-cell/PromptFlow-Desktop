@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { isSupabaseConfigured } from '../lib/supabase.js'
+import { isFirebaseConfigured as isSupabaseConfigured } from '../lib/firebase.js'
 
 export function WorkspacePanel({
     user, workspaces, activeWorkspaceId, workspaceVersions,
@@ -139,7 +139,7 @@ export function WorkspacePanel({
                                         </span>
                                     </button>
                                     <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', flexShrink: 0 }}>
-                                        {v.profiles?.email?.split('@')[0]}
+                                        {v.userId?.slice(0, 6)}
                                     </span>
                                 </div>
                             ))}

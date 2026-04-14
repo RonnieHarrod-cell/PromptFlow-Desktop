@@ -43,7 +43,7 @@ function createWindow() {
         ...details.responseHeaders,
         'Content-Security-Policy': [
           "default-src 'self' app: 'unsafe-inline' 'unsafe-eval'; " +
-          "connect-src 'self' https://*.supabase.co wss://*.supabase.co " +
+          "connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://*.firebase.com " +
           "https://api.anthropic.com https://api.openai.com " +
           "https://api.groq.com https://generativelanguage.googleapis.com; " +
           "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
@@ -110,8 +110,8 @@ function initAutoUpdater() {
 
   // IPC handlers
   ipcMain.handle('updater:download', () => autoUpdater.downloadUpdate())
-  ipcMain.handle('updater:install',  () => autoUpdater.quitAndInstall())
-  ipcMain.handle('updater:check',    () => autoUpdater.checkForUpdates())
+  ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall())
+  ipcMain.handle('updater:check', () => autoUpdater.checkForUpdates())
 }
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
@@ -133,8 +133,8 @@ function buildMenu() {
     {
       label: 'File',
       submenu: [
-        { label: 'New Prompt',   accelerator: 'CmdOrCtrl+N',       click: () => mainWindow?.webContents.send('menu:new-prompt') },
-        { label: 'Save Version', accelerator: 'CmdOrCtrl+S',       click: () => mainWindow?.webContents.send('menu:save') },
+        { label: 'New Prompt', accelerator: 'CmdOrCtrl+N', click: () => mainWindow?.webContents.send('menu:new-prompt') },
+        { label: 'Save Version', accelerator: 'CmdOrCtrl+S', click: () => mainWindow?.webContents.send('menu:save') },
         { label: 'Fork Version', accelerator: 'CmdOrCtrl+Shift+F', click: () => mainWindow?.webContents.send('menu:fork') },
         { type: 'separator' },
         { label: 'Close Window', role: 'close' },
@@ -155,8 +155,8 @@ function buildMenu() {
     {
       label: 'Run',
       submenu: [
-        { label: 'Run Prompt',     accelerator: 'CmdOrCtrl+Return', click: () => mainWindow?.webContents.send('menu:run') },
-        { label: 'Stop Streaming', accelerator: 'CmdOrCtrl+.',      click: () => mainWindow?.webContents.send('menu:stop') },
+        { label: 'Run Prompt', accelerator: 'CmdOrCtrl+Return', click: () => mainWindow?.webContents.send('menu:run') },
+        { label: 'Stop Streaming', accelerator: 'CmdOrCtrl+.', click: () => mainWindow?.webContents.send('menu:stop') },
       ],
     },
     {
@@ -196,7 +196,7 @@ ipcMain.handle('keystore:get', () => storedApiKey)
 ipcMain.handle('keystore:set', (_, key) => { storedApiKey = key })
 ipcMain.on('window:minimize', () => mainWindow?.minimize())
 ipcMain.on('window:maximize', () => { mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow?.maximize() })
-ipcMain.on('window:close',    () => mainWindow?.close())
+ipcMain.on('window:close', () => mainWindow?.close())
 
 app.whenReady().then(() => {
   protocol.handle('app', (request) => {

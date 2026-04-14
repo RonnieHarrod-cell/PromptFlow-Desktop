@@ -1,190 +1,177 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as fbSignOut,
+  onAuthStateChanged,
+} from 'firebase/auth'
+import {
+  collection, doc, addDoc, setDoc, getDocs, getDoc,
+  onSnapshot, query, where, orderBy,
+  serverTimestamp, deleteDoc, updateDoc,
+} from 'firebase/firestore'
+import { auth, db, isFirebaseConfigured } from '../lib/firebase.js'
 
-/**
- * Manages Supabase auth state.
- */
+// ── Auth ──────────────────────────────────────────────────────────────────────
 export function useAuth() {
-    const [user, setUser] = useState(null)
-    const [loading, setLoading] = useState(true)
+  const [user, setUser]       = useState(null)
+  const [loading, setLoading] = useState(true)
 
-    useEffect(() => {
-        if (!isSupabaseConfigured()) { setLoading(false); return }
+  useEffect(() => {
+    if (!isFirebaseConfigured()) { setLoading(false); return }
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u)
+      setLoading(false)
+    })
+    return unsub
+  }, [])
 
-        supabase.auth.getSession().then(({ data }) => {
-            setUser(data?.session?.user ?? null)
-            setLoading(false)
-        })
+  const signIn = useCallback(async (email, password) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+      return { error: null }
+    } catch (e) {
+      return { error: e }
+    }
+  }, [])
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-            setUser(session?.user ?? null)
-        })
+  const signUp = useCallback(async (email, password) => {
+    try {
+      const { user } = await createUserWithEmailAndPassword(auth, email, password)
+      // Write email to users collection so invite-by-email lookup works
+      await setDoc(doc(db, 'users', user.uid), { email })
+      return { error: null }
+    } catch (e) {
+      return { error: e }
+    }
+  }, [])
 
-        return () => subscription.unsubscribe()
-    }, [])
+  const signOut = useCallback(() => fbSignOut(auth), [])
 
-    const signIn = useCallback(async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
-        return { error }
-    }, [])
-
-    const signUp = useCallback(async (email, password) => {
-        const { error } = await supabase.auth.signUp({ email, password })
-        return { error }
-    }, [])
-
-    const signOut = useCallback(async () => {
-        await supabase.auth.signOut()
-    }, [])
-
-    return { user, loading, signIn, signUp, signOut }
+  return { user, loading, signIn, signUp, signOut }
 }
 
-/**
- * Workspace CRUD + real-time sync.
- * A workspace groups a set of shared prompt versions accessible to a team.
- */
-export function useWorkspace(workspaceId) {
-    const [versions, setVersions] = useState([])
-    const [workspace, setWorkspace] = useState(null)
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState(null)
-
-    // Load workspace metadata and versions
-    useEffect(() => {
-        if (!workspaceId || !isSupabaseConfigured()) return
-
-        setLoading(true)
-
-        Promise.all([
-            supabase.from('workspaces').select('*').eq('id', workspaceId).single(),
-            supabase.from('prompt_versions')
-                .select('*, profiles(email)')
-                .eq('workspace_id', workspaceId)
-                .order('created_at', { ascending: false }),
-        ]).then(([wsResult, versionsResult]) => {
-            if (wsResult.error) setError(wsResult.error.message)
-            else setWorkspace(wsResult.data)
-
-            if (!versionsResult.error) setVersions(versionsResult.data || [])
-            setLoading(false)
-        })
-
-        // Real-time subscription for collaborators
-        const channel = supabase
-            .channel(`workspace:${workspaceId}`)
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'prompt_versions',
-                filter: `workspace_id=eq.${workspaceId}`,
-            }, (payload) => {
-                if (payload.eventType === 'INSERT') {
-                    setVersions(prev => [payload.new, ...prev])
-                } else if (payload.eventType === 'UPDATE') {
-                    setVersions(prev => prev.map(v => v.id === payload.new.id ? payload.new : v))
-                } else if (payload.eventType === 'DELETE') {
-                    setVersions(prev => prev.filter(v => v.id !== payload.old.id))
-                }
-            })
-            .subscribe()
-
-        return () => supabase.removeChannel(channel)
-    }, [workspaceId])
-
-    // Push a local version to the workspace
-    const pushVersion = useCallback(async (version, userId) => {
-        if (!isSupabaseConfigured()) return { error: 'Supabase not configured' }
-
-        const { data, error } = await supabase.from('prompt_versions').insert({
-            workspace_id: workspaceId,
-            user_id: userId,
-            label: version.label,
-            content: version.content,
-            variables: version.variables || {},
-        }).select().single()
-
-        return { data, error: error?.message }
-    }, [workspaceId])
-
-    // Delete a version
-    const deleteVersion = useCallback(async (versionId) => {
-        const { error } = await supabase
-            .from('prompt_versions')
-            .delete()
-            .eq('id', versionId)
-        return { error: error?.message }
-    }, [])
-
-    return { workspace, versions, loading, error, pushVersion, deleteVersion }
-}
-
-/**
- * List all workspaces the current user belongs to.
- */
+// ── Workspace list ────────────────────────────────────────────────────────────
 export function useWorkspaceList(userId) {
-    const [workspaces, setWorkspaces] = useState([])
-    const [loading, setLoading] = useState(false)
+  const [workspaces, setWorkspaces] = useState([])
+  const [loading, setLoading]       = useState(false)
 
-    useEffect(() => {
-        if (!userId || !isSupabaseConfigured()) return
-        setLoading(true)
-        supabase
-            .from('workspace_members')
-            .select('workspace:workspaces(*)')
-            .eq('user_id', userId)
-            .then(({ data }) => {
-                setWorkspaces((data || []).map(r => r.workspace))
-                setLoading(false)
-            })
-    }, [userId])
+  useEffect(() => {
+    if (!userId || !isFirebaseConfigured()) return
+    setLoading(true)
 
-    const createWorkspace = useCallback(async (name) => {
-        if (!isSupabaseConfigured()) return { error: 'Supabase not configured' }
+    // Listen to workspaces where user is a member
+    const q = query(
+      collection(db, 'workspaces'),
+      where('members', 'array-contains', userId)
+    )
 
-        // Create workspace
-        const { data: ws, error: wsErr } = await supabase
-            .from('workspaces')
-            .insert({ name, owner_id: userId })
-            .select().single()
+    const unsub = onSnapshot(q, (snap) => {
+      setWorkspaces(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setLoading(false)
+    })
 
-        if (wsErr) return { error: wsErr.message }
+    return unsub
+  }, [userId])
 
-        // Add creator as member
-        const { error: memberErr } = await supabase
-            .from('workspace_members')
-            .insert({
-                workspace_id: ws.id,
-                user_id: userId,
-                role: 'owner',
-            })
+  const createWorkspace = useCallback(async (name, userId) => {
+    if (!isFirebaseConfigured()) return { error: 'Firebase not configured' }
+    try {
+      const ref = await addDoc(collection(db, 'workspaces'), {
+        name,
+        ownerId: userId,
+        members: [userId],
+        createdAt: serverTimestamp(),
+      })
+      return { data: { id: ref.id, name } }
+    } catch (e) {
+      return { error: e.message }
+    }
+  }, [])
 
-        if (memberErr) return { error: memberErr.message }
+  const inviteMember = useCallback(async (workspaceId, email) => {
+    if (!isFirebaseConfigured()) return { error: 'Firebase not configured' }
+    try {
+      // Look up user by email in our users collection
+      const q = query(collection(db, 'users'), where('email', '==', email))
+      const snap = await getDocs(q)
+      if (snap.empty) return { error: 'No user found with that email. They must sign up first.' }
 
-        setWorkspaces(prev => [ws, ...prev])
-        return { data: ws }
-    }, [])
+      const invitedUserId = snap.docs[0].id
+      const wsRef = doc(db, 'workspaces', workspaceId)
+      const wsSnap = await getDoc(wsRef)
+      if (!wsSnap.exists()) return { error: 'Workspace not found' }
 
-    const inviteMember = useCallback(async (workspaceId, email) => {
-        if (!isSupabaseConfigured()) return { error: 'Supabase not configured' }
+      const members = wsSnap.data().members || []
+      if (members.includes(invitedUserId)) return { error: 'Already a member' }
 
-        // Look up user by email via profiles table
-        const { data: profile, error: profileErr } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', email)
-            .single()
+      await updateDoc(wsRef, { members: [...members, invitedUserId] })
+      return { error: null }
+    } catch (e) {
+      return { error: e.message }
+    }
+  }, [])
 
-        if (profileErr) return { error: 'User not found' }
+  return { workspaces, loading, createWorkspace, inviteMember }
+}
 
-        const { error } = await supabase.from('workspace_members').insert({
-            workspace_id: workspaceId,
-            user_id: profile.id,
-            role: 'member',
-        })
+// ── Workspace versions (real-time) ────────────────────────────────────────────
+export function useWorkspace(workspaceId) {
+  const [versions, setVersions] = useState([])
+  const [workspace, setWorkspace] = useState(null)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState(null)
 
-        return { error: error?.message }
-    }, [])
+  useEffect(() => {
+    if (!workspaceId || !isFirebaseConfigured()) return
+    setLoading(true)
 
-    return { workspaces, loading, createWorkspace, inviteMember }
+    // Workspace metadata
+    const wsUnsub = onSnapshot(doc(db, 'workspaces', workspaceId), (snap) => {
+      if (snap.exists()) setWorkspace({ id: snap.id, ...snap.data() })
+    })
+
+    // Shared versions — real-time
+    const q = query(
+      collection(db, 'workspaces', workspaceId, 'versions'),
+      orderBy('createdAt', 'desc')
+    )
+
+    const versionsUnsub = onSnapshot(q, (snap) => {
+      setVersions(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setLoading(false)
+    }, (err) => {
+      setError(err.message)
+      setLoading(false)
+    })
+
+    return () => { wsUnsub(); versionsUnsub() }
+  }, [workspaceId])
+
+  const pushVersion = useCallback(async ({ label, content, variables }, userId) => {
+    if (!isFirebaseConfigured() || !workspaceId) return { error: 'Not configured' }
+    try {
+      await addDoc(collection(db, 'workspaces', workspaceId, 'versions'), {
+        label,
+        content,
+        variables: variables || {},
+        userId,
+        createdAt: serverTimestamp(),
+      })
+      return { error: null }
+    } catch (e) {
+      return { error: e.message }
+    }
+  }, [workspaceId])
+
+  const deleteVersion = useCallback(async (versionId) => {
+    if (!workspaceId) return
+    try {
+      await deleteDoc(doc(db, 'workspaces', workspaceId, 'versions', versionId))
+    } catch (e) {
+      console.error('Delete failed:', e.message)
+    }
+  }, [workspaceId])
+
+  return { workspace, versions, loading, error, pushVersion, deleteVersion }
 }
