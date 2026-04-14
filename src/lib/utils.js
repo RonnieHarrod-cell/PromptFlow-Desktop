@@ -53,9 +53,9 @@ export function registerPromptLanguage(monaco) {
         base: 'vs-dark',
         inherit: true,
         rules: [
-            { token: 'variable', foreground: 'F59E0B', fontStyle: 'bold' },
-            { token: 'comment', foreground: '4e4e5a' },
-            { token: 'string', foreground: '3ecf8e' },
+            { token: 'variable', foreground: '#F59E0B', fontStyle: 'bold' },
+            { token: 'comment', foreground: '#4e4e5a' },
+            { token: 'string', foreground: '#3ecf8e' },
         ],
         colors: {
             'editor.background': '#131316',

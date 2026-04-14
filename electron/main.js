@@ -45,9 +45,9 @@ function createWindow() {
           "default-src 'self' app: 'unsafe-inline' 'unsafe-eval'; " +
           "connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://*.firebase.com " +
           "https://api.anthropic.com https://api.openai.com " +
-          "https://api.groq.com https://generativelanguage.googleapis.com; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-          "style-src 'self' 'unsafe-inline';"
+          "https://api.groq.com https://generativelanguage.googleapis.com https://cdn.jsdelivr.net; " +
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; " +
+          "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;"
         ],
       },
     })

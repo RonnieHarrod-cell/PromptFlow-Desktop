@@ -39,7 +39,7 @@ export default function App() {
 
   // Auth + workspaces
   const { user, signIn, signUp, signOut } = useAuth()
-  const { workspaces, createWorkspace, inviteMember } = useWorkspaceList(user?.id)
+  const { workspaces, createWorkspace, inviteMember } = useWorkspaceList(user?.uid)
   const { versions: workspaceVersions, loading: workspaceLoading, pushVersion, deleteVersion } = useWorkspace(activeWorkspaceId)
 
   const injected = injectVariables(promptContent, variables)
@@ -77,7 +77,7 @@ export default function App() {
   // Workspace actions
   const handlePushVersion = useCallback(async ({ label, content }) => {
     if (!user || !activeWorkspaceId) return
-    await pushVersion({ label, content, variables }, user.id)
+    await pushVersion({ label, content, variables }, user.uid)
   }, [user, activeWorkspaceId, pushVersion, variables])
 
   const handlePullVersion = useCallback((v) => {
@@ -88,7 +88,7 @@ export default function App() {
 
   const handleCreateWorkspace = useCallback(async (name) => {
     if (!user) return
-    const { data } = await createWorkspace(name, user.id)
+    const { data } = await createWorkspace(name, user.uid)
     if (data) setActiveWorkspaceId(data.id)
   }, [user, createWorkspace])
 

@@ -1,6 +1,10 @@
 import React, { useEffect, useRef } from 'react'
-import Editor from '@monaco-editor/react'
+import Editor, { loader } from '@monaco-editor/react'
+import * as monaco from 'monaco-editor'
 import { registerPromptLanguage, PROMPT_LANGUAGE_ID } from '../lib/utils.js'
+
+// Configure monaco to load locally
+loader.config({ monaco })
 
 export function EditorPane({ content, onChange, isSaved }) {
     const monacoRef = useRef(null)

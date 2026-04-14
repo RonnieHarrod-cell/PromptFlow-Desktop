@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { isFirebaseConfigured as isSupabaseConfigured } from '../lib/firebase.js'
+import { isFirebaseConfigured } from '../lib/firebase.js'
 
 export function WorkspacePanel({
     user, workspaces, activeWorkspaceId, workspaceVersions,
@@ -13,7 +13,7 @@ export function WorkspacePanel({
     const [showInvite, setShowInvite] = useState(false)
     const [pushLabel, setPushLabel] = useState('')
 
-    const configured = isSupabaseConfigured()
+    const configured = isFirebaseConfigured()
 
     async function handleCreate() {
         if (!newWsName.trim()) return
@@ -40,8 +40,8 @@ export function WorkspacePanel({
             <div style={panelStyle}>
                 <SectionLabel>Team workspace</SectionLabel>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', lineHeight: 1.6, padding: '4px 0' }}>
-                    Add <code style={{ color: '#f59e0b', fontSize: 10 }}>VITE_SUPABASE_URL</code> and{' '}
-                    <code style={{ color: '#f59e0b', fontSize: 10 }}>VITE_SUPABASE_ANON_KEY</code> to your{' '}
+                    Add <code style={{ color: '#f59e0b', fontSize: 10 }}>VITE_FIREBASE_API_KEY</code> and{' '}
+                    <code style={{ color: '#f59e0b', fontSize: 10 }}>VITE_FIREBASE_PROJECT_ID</code> to your{' '}
                     <code style={{ color: '#f59e0b', fontSize: 10 }}>.env</code> to enable workspaces.
                 </div>
             </div>
