@@ -5,7 +5,7 @@ import React from 'react'
  * downloading, or ready to install.
  */
 export function UpdateBanner({ status, version, percent, error, onDownload, onInstall }) {
-    if (status === 'idle' || status === 'checking' || status === 'error') return null
+    if (status === 'idle' || status === 'checking') return null
 
     const bar = {
         base: {
@@ -16,6 +16,7 @@ export function UpdateBanner({ status, version, percent, error, onDownload, onIn
         available: { background: 'rgba(124,108,252,0.12)', color: '#c4beff' },
         downloading: { background: 'rgba(245,158,11,0.1)', color: '#fbbf24' },
         downloaded: { background: 'rgba(62,207,142,0.1)', color: '#3ecf8e' },
+        error: { background: 'rgba(248,113,113,0.1)', color: '#f87171' },
     }
 
     const style = { ...bar.base, ...(bar[status] || bar.available) }
@@ -25,7 +26,7 @@ export function UpdateBanner({ status, version, percent, error, onDownload, onIn
             {status === 'available' && (
                 <>
                     <span style={{ flex: 1 }}>
-                        PromptFlow {version} is available
+                        PromptFlow {version ? `v${version}` : 'Update'} is available
                     </span>
                     <button onClick={onDownload} style={btnStyle}>
                         Download update
@@ -49,10 +50,21 @@ export function UpdateBanner({ status, version, percent, error, onDownload, onIn
             {status === 'downloaded' && (
                 <>
                     <span style={{ flex: 1 }}>
-                        Update ready — restart to install PromptFlow {version}
+                        Update ready — restart to install PromptFlow {version ? `v${version}` : ''}
                     </span>
                     <button onClick={onInstall} style={{ ...btnStyle, background: 'rgba(62,207,142,0.2)', color: '#3ecf8e', borderColor: 'rgba(62,207,142,0.4)' }}>
                         Restart &amp; install
+                    </button>
+                </>
+            )}
+
+            {status === 'error' && (
+                <>
+                    <span style={{ flex: 1 }}>
+                        Error checking for updates: {error?.message || String(error)}
+                    </span>
+                    <button onClick={() => { window.location.reload() }} style={{ ...btnStyle, background: 'rgba(248,113,113,0.2)', color: '#f87171', borderColor: 'rgba(248,113,113,0.35)' }}>
+                        Retry
                     </button>
                 </>
             )}

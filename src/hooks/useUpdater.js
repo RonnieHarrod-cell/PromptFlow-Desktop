@@ -45,7 +45,7 @@ export function useUpdater() {
 
     const download = () => {
         if (!isElectron()) return
-        useState(s => ({ ...s, status: 'downloading', percent: 0 }))
+        setState(s => ({ ...s, status: 'downloading', percent: 0 }))
         window.electron.updater.download()
     }
 
