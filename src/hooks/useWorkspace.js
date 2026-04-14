@@ -139,7 +139,7 @@ export function useWorkspaceList(userId) {
             })
     }, [userId])
 
-    const createWorkspace = useCallback(async (name, userId) => {
+    const createWorkspace = useCallback(async (name) => {
         if (!isSupabaseConfigured()) return { error: 'Supabase not configured' }
 
         // Create workspace
@@ -151,11 +151,15 @@ export function useWorkspaceList(userId) {
         if (wsErr) return { error: wsErr.message }
 
         // Add creator as member
-        await supabase.from('workspace_members').insert({
-            workspace_id: ws.id,
-            user_id: userId,
-            role: 'owner',
-        })
+        const { error: memberErr } = await supabase
+            .from('workspace_members')
+            .insert({
+                workspace_id: ws.id,
+                user_id: userId,
+                role: 'owner',
+            })
+
+        if (memberErr) return { error: memberErr.message }
 
         setWorkspaces(prev => [ws, ...prev])
         return { data: ws }
