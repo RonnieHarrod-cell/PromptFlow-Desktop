@@ -19,7 +19,7 @@ jobs:
   build-linux:
     name: Linux (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
-    environment: production
+    environment: Build
     strategy:
       fail-fast: false
       matrix:
@@ -114,7 +114,7 @@ jobs:
       - name: Build Vite
         run: npx vite build
         env:
-          NODE_ENV: production
+          NODE_ENV: Build
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
@@ -156,7 +156,7 @@ jobs:
   build-windows:
     name: Windows (${{ matrix.arch }})
     runs-on: windows-latest
-    environment: production
+    environment: Build
     strategy:
       fail-fast: false
       matrix:
@@ -259,7 +259,7 @@ jobs:
       - name: Build Vite
         run: npx vite build
         env:
-          NODE_ENV: production
+          NODE_ENV: Build
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
