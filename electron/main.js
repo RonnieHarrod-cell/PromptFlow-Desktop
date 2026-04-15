@@ -110,8 +110,13 @@ function initAutoUpdater() {
   })
 
   autoUpdater.on('error', (err) => {
-    console.error('Updater error:', err)
-    mainWindow?.webContents.send('updater:error', err?.message || String(err))
+    const errorData = {
+      message: err?.message || String(err),
+      name: err?.name || 'UpdateError',
+      stack: isDev ? err?.stack : undefined
+    }
+    console.error('Updater error:', errorData)
+    mainWindow?.webContents.send('updater:error', errorData)
   })
 
   autoUpdater.checkForUpdates()
