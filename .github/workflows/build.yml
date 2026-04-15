@@ -19,6 +19,7 @@ jobs:
   build-linux:
     name: Linux (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+    environment: production
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +37,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+
+      - name: Check Secrets
+        shell: bash
+        run: |
+          echo "Checking secret presence (lengths only)..."
+          echo "API_KEY length: ${#VAL}"
+          echo "PROJECT_ID length: ${#ID}"
+        env:
+          VAL: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
 
       - name: Install system deps
         run: |
@@ -145,6 +156,7 @@ jobs:
   build-windows:
     name: Windows (${{ matrix.arch }})
     runs-on: windows-latest
+    environment: production
     strategy:
       fail-fast: false
       matrix:
@@ -159,6 +171,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+
+      - name: Check Secrets
+        shell: bash
+        run: |
+          echo "Checking secret presence (lengths only)..."
+          echo "API_KEY length: ${#VAL}"
+          echo "PROJECT_ID length: ${#ID}"
+        env:
+          VAL: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
 
       - name: Generate icon.ico
         shell: python
