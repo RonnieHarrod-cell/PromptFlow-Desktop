@@ -12,7 +12,14 @@ const firebaseConfig = {
   appId:             import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
-export const isFirebaseConfigured = () => !!import.meta.env.VITE_FIREBASE_API_KEY
+export const isFirebaseConfigured = () => {
+  const hasKey = !!import.meta.env.VITE_FIREBASE_API_KEY
+  const hasId = !!import.meta.env.VITE_FIREBASE_PROJECT_ID
+  if (!hasKey || !hasId) {
+    console.warn('Firebase config missing:', { hasKey, hasId })
+  }
+  return hasKey && hasId
+}
 
 let app, auth, db
 
