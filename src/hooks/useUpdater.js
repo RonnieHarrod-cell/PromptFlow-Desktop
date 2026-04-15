@@ -28,7 +28,7 @@ export function useUpdater() {
                     setState(s => ({ ...s, status: 'downloading', percent: data?.percent ?? 0 }))
                     break
                 case 'downloaded':
-                    setState(s => ({ ...s, status: 'downloaded' }))
+                    setState(s => ({ ...s, status: 'downloaded' })) // version is already in state
                     break
                 case 'error':
                     setState(s => ({ ...s, status: 'error', error: data }))
