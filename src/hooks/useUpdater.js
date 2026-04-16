@@ -31,7 +31,8 @@ export function useUpdater() {
                     setState(s => ({ ...s, status: 'downloaded' })) // version is already in state
                     break
                 case 'error':
-                    setState(s => ({ ...s, status: 'error', error: data }))
+                    console.error('Updater IPC Error Event:', data)
+                    setState(s => ({ ...s, status: 'error', error: data || { message: 'Unknown IPC error' } }))
                     break
                 case 'manual-check':
                     window.electron.updater.check()

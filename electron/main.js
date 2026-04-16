@@ -110,7 +110,8 @@ function initAutoUpdater() {
       stack: isDev ? err?.stack : undefined
     }
     console.error('Updater error:', errorData)
-    mainWindow?.webContents.send('updater:error', errorData)
+    // Ensure we send a valid object
+    mainWindow?.webContents.send('updater:error', errorData || { message: 'Unknown error' })
   })
 
   autoUpdater.checkForUpdates().catch(err => {
