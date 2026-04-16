@@ -6,6 +6,7 @@ const isDev = process.env.ELECTRON_ENV === 'development'
 const DIST_DIR = path.join(__dirname, '../dist')
 
 let mainWindow
+let autoUpdater = null
 
 function registerAppProtocol() {
   protocol.registerSchemesAsPrivileged([
@@ -54,9 +55,18 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
-    // Check for updates after window is shown (production only)
     if (!isDev) {
-      setTimeout(() => initAutoUpdater(), 3000)
+      // First window: set up the updater and run an initial check
+      if (!autoUpdater) autoUpdater = setupAutoUpdater()
+      setTimeout(() => checkForUpdates(autoUpdater), 3000)
+    }
+  })
+
+  // Re-run the check whenever the renderer reloads so the banner reflects
+  // the real state rather than the default "up to date" idle status.
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (!isDev && autoUpdater) {
+      setTimeout(() => checkForUpdates(autoUpdater), 1000)
     }
   })
 
@@ -68,7 +78,8 @@ function createWindow() {
 }
 
 // ── Auto-updater ──────────────────────────────────────────────────────────────
-function initAutoUpdater() {
+// Registered once at process level — safe across window close/reopen on macOS.
+function setupAutoUpdater() {
   const { autoUpdater } = require('electron-updater')
 
   autoUpdater.autoDownload = false
@@ -78,18 +89,15 @@ function initAutoUpdater() {
   autoUpdater.on('checking-for-update', () => {
     mainWindow?.webContents.send('updater:checking')
   })
-
   autoUpdater.on('update-available', (info) => {
     mainWindow?.webContents.send('updater:available', {
       version: info.version,
       releaseNotes: info.releaseNotes,
     })
   })
-
   autoUpdater.on('update-not-available', () => {
     mainWindow?.webContents.send('updater:not-available')
   })
-
   autoUpdater.on('download-progress', (progress) => {
     mainWindow?.webContents.send('updater:progress', {
       percent: Math.round(progress.percent),
@@ -97,30 +105,36 @@ function initAutoUpdater() {
       total: progress.total,
     })
   })
-
   autoUpdater.on('update-downloaded', () => {
     mainWindow?.webContents.send('updater:downloaded')
   })
-
   autoUpdater.on('error', (err) => {
     const errorData = {
       message: err?.message || String(err || 'Unknown updater error'),
       name: err?.name || 'UpdateError',
-      stack: isDev ? err?.stack : undefined
+      stack: isDev ? err?.stack : undefined,
     }
     console.error('Updater error:', errorData)
-    // Ensure we send a valid object
-    mainWindow?.webContents.send('updater:error', errorData || { message: 'Unknown error' })
+    mainWindow?.webContents.send('updater:error', errorData)
   })
 
+  ipcMain.handle('updater:download', () => autoUpdater.downloadUpdate())
+  ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall())
+  ipcMain.handle('updater:check', () =>
+    autoUpdater.checkForUpdates().catch(err => {
+      console.error('Failed to start update check:', err)
+    })
+  )
+
+  return autoUpdater
+}
+
+// Runs an update check. Called on first window show and whenever the renderer
+// requests one (e.g. after a reload or manual "Check for Updates").
+function checkForUpdates(autoUpdater) {
   autoUpdater.checkForUpdates().catch(err => {
     console.error('Failed to start update check:', err)
   })
-
-  // IPC handlers
-  ipcMain.handle('updater:download', () => autoUpdater.downloadUpdate())
-  ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall())
-  ipcMain.handle('updater:check', () => autoUpdater.checkForUpdates())
 }
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
