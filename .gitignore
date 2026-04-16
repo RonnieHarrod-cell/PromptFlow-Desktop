@@ -3,3 +3,4 @@ package-lock.json
 dist/
 dist-electron/.env
 .env
+.DS_Store
