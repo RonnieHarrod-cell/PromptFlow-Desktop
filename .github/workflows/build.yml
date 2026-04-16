@@ -139,11 +139,14 @@ jobs:
           mkdir -p release-artifacts
           VERSION=$(node -p "require('./package.json').version")
           arch="${{ matrix.arch == 'x86-64' && 'x86_64' || 'arm64' }}"
-          find dist-electron -maxdepth 1 -name "*.AppImage" -exec cp {} "release-artifacts/PromptFlow-${VERSION}-${arch}.AppImage" \;
+          # AppImages must keep their electron-builder names so the YAML manifests match
+          find dist-electron -maxdepth 1 -name "*.AppImage" -exec cp {} release-artifacts/ \;
           find dist-electron -maxdepth 1 -name "*.deb"      -exec cp {} "release-artifacts/PromptFlow-${VERSION}-${arch}.deb" \;
           if [ "${{ matrix.arch }}" = "x86-64" ]; then
             find dist-electron -maxdepth 1 -name "*.rpm" -exec cp {} "release-artifacts/PromptFlow-${VERSION}-x86_64.rpm" \;
           fi
+          # YAML manifests are required by electron-updater to check for and download updates
+          find dist-electron -maxdepth 1 -name "*.yml" -exec cp {} release-artifacts/ \;
           ls -lh release-artifacts/
 
       - uses: actions/upload-artifact@v4
@@ -203,12 +206,16 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           find dist-electron -maxdepth 1 -name "*.dmg" \
             -exec cp {} "release-artifacts/PromptFlow-${VERSION}-${{ matrix.arch }}.dmg" \;
+          # zip is the actual update payload used by electron-updater on macOS
+          find dist-electron -maxdepth 1 -name "*.zip" -exec cp {} release-artifacts/ \;
+          # YAML manifests are required by electron-updater for auto-update checks
+          find dist-electron -maxdepth 1 -name "*.yml" -exec cp {} release-artifacts/ \;
           ls -lh release-artifacts/
 
       - uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.arch }}
-          path: release-artifacts/*.dmg
+          path: release-artifacts/*
           retention-days: 7
 
   build-windows:
@@ -339,18 +346,20 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           find dist-electron -maxdepth 1 -name "*.exe" \
             -exec cp {} "release-artifacts/PromptFlow-${VERSION}-${{ matrix.arch }}.exe" \;
+          # YAML manifests are required by electron-updater for auto-update checks
+          find dist-electron -maxdepth 1 -name "*.yml" -exec cp {} release-artifacts/ \;
           ls -lh release-artifacts/
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.arch }}
-          path: release-artifacts/*.exe
+          path: release-artifacts/*
           retention-days: 7
 
   release:
     name: Publish Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-linux, build-windows]
+    needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

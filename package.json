@@ -49,6 +49,13 @@
         }
       ]
     },
+    "mac": {
+      "icon": "electron/assets/icon.png",
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ]
+    },
     "win": {
       "icon": "electron/assets/icon.ico",
       "target": [
