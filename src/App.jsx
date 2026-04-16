@@ -114,6 +114,7 @@ export default function App() {
         status={updater.status}
         version={updater.version}
         percent={updater.percent}
+        error={updater.error}
         onDownload={updater.download}
         onInstall={updater.install}
       />
