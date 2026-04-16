@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { isFirebaseConfigured } from '../lib/firebase.js'
+import { WorkspaceChat } from './WorkspaceChat.jsx'
 
 export function WorkspacePanel({
     user, workspaces, activeWorkspaceId, workspaceVersions,
@@ -12,6 +13,7 @@ export function WorkspacePanel({
     const [creating, setCreating] = useState(false)
     const [showInvite, setShowInvite] = useState(false)
     const [pushLabel, setPushLabel] = useState('')
+    const [activeTab, setActiveTab] = useState('versions')
 
     const configured = isFirebaseConfigured()
 
@@ -105,64 +107,96 @@ export function WorkspacePanel({
                 <>
                     <div style={{ height: '0.5px', background: 'rgba(255,255,255,0.06)', margin: '6px 0' }} />
 
-                    {/* Push current prompt */}
-                    <SectionLabel>Push to workspace</SectionLabel>
-                    <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                        <input
-                            value={pushLabel}
-                            onChange={e => setPushLabel(e.target.value)}
-                            placeholder="Version label…"
-                            style={miniInputStyle}
-                        />
-                        <button onClick={handlePush} style={iconBtnStyle} title="Push">↑</button>
+                    {/* Tab bar */}
+                    <div style={{ display: 'flex', gap: 2, marginBottom: 8 }}>
+                        {['versions', 'chat'].map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                style={{
+                                    flex: 1, fontSize: 10, fontWeight: 600,
+                                    letterSpacing: '0.06em', textTransform: 'uppercase',
+                                    padding: '3px 0', borderRadius: 4, cursor: 'pointer',
+                                    border: activeTab === tab
+                                        ? '0.5px solid rgba(124,108,252,0.4)'
+                                        : '0.5px solid rgba(255,255,255,0.07)',
+                                    background: activeTab === tab
+                                        ? 'rgba(124,108,252,0.12)'
+                                        : 'transparent',
+                                    color: activeTab === tab
+                                        ? '#9d91fd'
+                                        : 'rgba(255,255,255,0.3)',
+                                }}
+                            >
+                                {tab}
+                            </button>
+                        ))}
                     </div>
 
-                    {/* Shared versions */}
-                    <SectionLabel>Shared versions</SectionLabel>
-                    {workspaceLoading ? (
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>Loading…</div>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 140, overflowY: 'auto' }}>
-                            {workspaceVersions.length === 0 && (
-                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>No shared versions yet</div>
-                            )}
-                            {workspaceVersions.map(v => (
-                                <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <button
-                                        onClick={() => onPullVersion(v)}
-                                        style={{ ...wsItemStyle, flex: 1, color: 'rgba(255,255,255,0.5)' }}
-                                        title="Pull into editor"
-                                    >
-                                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', flexShrink: 0 }} />
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>
-                                            {v.label}
-                                        </span>
-                                    </button>
-                                    <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', flexShrink: 0 }}>
-                                        {v.userId?.slice(0, 6)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    {activeTab === 'versions' ? (
+                        <>
+                            {/* Push current prompt */}
+                            <SectionLabel>Push to workspace</SectionLabel>
+                            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                                <input
+                                    value={pushLabel}
+                                    onChange={e => setPushLabel(e.target.value)}
+                                    placeholder="Version label…"
+                                    style={miniInputStyle}
+                                />
+                                <button onClick={handlePush} style={iconBtnStyle} title="Push">↑</button>
+                            </div>
 
-                    {/* Invite */}
-                    <div style={{ height: '0.5px', background: 'rgba(255,255,255,0.06)', margin: '8px 0' }} />
-                    {showInvite ? (
-                        <div style={{ display: 'flex', gap: 4 }}>
-                            <input
-                                value={inviteEmail}
-                                onChange={e => setInviteEmail(e.target.value)}
-                                placeholder="Email to invite…"
-                                onKeyDown={e => e.key === 'Enter' && handleInvite()}
-                                style={miniInputStyle}
-                            />
-                            <button onClick={handleInvite} style={iconBtnStyle}>✓</button>
-                        </div>
+                            {/* Shared versions */}
+                            <SectionLabel>Shared versions</SectionLabel>
+                            {workspaceLoading ? (
+                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>Loading…</div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 140, overflowY: 'auto' }}>
+                                    {workspaceVersions.length === 0 && (
+                                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>No shared versions yet</div>
+                                    )}
+                                    {workspaceVersions.map(v => (
+                                        <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <button
+                                                onClick={() => onPullVersion(v)}
+                                                style={{ ...wsItemStyle, flex: 1, color: 'rgba(255,255,255,0.5)' }}
+                                                title="Pull into editor"
+                                            >
+                                                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', flexShrink: 0 }} />
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>
+                                                    {v.label}
+                                                </span>
+                                            </button>
+                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', flexShrink: 0 }}>
+                                                {v.userId?.slice(0, 6)}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Invite */}
+                            <div style={{ height: '0.5px', background: 'rgba(255,255,255,0.06)', margin: '8px 0' }} />
+                            {showInvite ? (
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                    <input
+                                        value={inviteEmail}
+                                        onChange={e => setInviteEmail(e.target.value)}
+                                        placeholder="Email to invite…"
+                                        onKeyDown={e => e.key === 'Enter' && handleInvite()}
+                                        style={miniInputStyle}
+                                    />
+                                    <button onClick={handleInvite} style={iconBtnStyle}>✓</button>
+                                </div>
+                            ) : (
+                                <button onClick={() => setShowInvite(true)} style={outlineBtnStyle}>
+                                    + Invite member
+                                </button>
+                            )}
+                        </>
                     ) : (
-                        <button onClick={() => setShowInvite(true)} style={outlineBtnStyle}>
-                            + Invite member
-                        </button>
+                        <WorkspaceChat workspaceId={activeWorkspaceId} user={user} />
                     )}
                 </>
             )}

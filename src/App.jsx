@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { TitleBar } from './components/Titlebar.jsx'
 import { Sidebar } from './components/Sidebar.jsx'
 import { EditorPane } from './components/EditorPane.jsx'
@@ -6,6 +6,8 @@ import { PreviewPane } from './components/PreviewPane.jsx'
 import { StatusBar } from './components/StatusBar.jsx'
 import { UpdateBanner } from './components/UpdateBanner.jsx'
 import { AuthModal } from './components/AuthModal.jsx'
+import { SettingsModal } from './components/SettingsModal.jsx'
+import { CodeExportModal } from './components/CodeExportModal.jsx'
 import { useStreaming } from './hooks/useStreaming.js'
 import { useVersionHistory } from './hooks/useVersionHistory.js'
 import { useApiKey, useMenuActions } from './hooks/useElectron.js'
@@ -15,23 +17,45 @@ import { useWorkspace, useWorkspaceList } from './hooks/useWorkspace.js'
 import { injectVariables, estimateTokens } from './lib/utils.js'
 import { DEFAULT_VARIABLES } from './lib/constants.js'
 import { getProvider } from './lib/providers.js'
+import { applyTheme, THEMES, DEFAULT_THEME_ID } from './lib/themes.js'
 
 export default function App() {
+  const [sidebarWidth, setSidebarWidth] = useState(200)
   const [provider, setProvider] = useState('anthropic')
   const [model, setModel] = useState(getProvider('anthropic').models[0].id)
   const [apiKey, setApiKey] = useState('')
   const [variables, setVariables] = useState(DEFAULT_VARIABLES)
   const [isSaved, setIsSaved] = useState(true)
-  const [activeSlot, setActiveSlot] = useState('A')
   const [tempA, setTempA] = useState(0.3)
   const [tempB, setTempB] = useState(0.9)
   const [topP, setTopP] = useState(0.85)
   const [showAuth, setShowAuth] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [showExport, setShowExport] = useState(false)
+  const [viewMode, setViewMode] = useState('a') // 'a' | 'b' | 'compare'
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(null)
+  const [fontSize, setFontSize] = useState(() => parseInt(localStorage.getItem('pf_fontSize') || '12'))
+  const [themeId, setThemeId] = useState(() => localStorage.getItem('pf_theme') || DEFAULT_THEME_ID)
+
+  useEffect(() => { applyTheme(themeId) }, []) // eslint-disable-line
+
+  const handleThemeChange = useCallback((id) => {
+    setThemeId(id)
+    localStorage.setItem('pf_theme', id)
+    applyTheme(id)
+  }, [])
+
+  const handleFontSizeChange = useCallback((size) => {
+    setFontSize(size)
+    localStorage.setItem('pf_fontSize', String(size))
+  }, [])
 
   const { save: saveApiKey } = useApiKey(setApiKey)
   const { versions, activeVersion, activeId, saveVersion, forkVersion, selectVersion } = useVersionHistory()
-  const { output, isStreaming, latency, error, run, stop } = useStreaming()
+  const streamA = useStreaming()
+  const streamB = useStreaming()
+  const isStreaming = streamA.isStreaming || streamB.isStreaming
+  const stopAll = useCallback(() => { streamA.stop(); streamB.stop() }, [streamA, streamB])
   const [promptContent, setPromptContent] = useState(activeVersion.content)
 
   // Auto-updater
@@ -55,10 +79,17 @@ export default function App() {
   }
 
   const handleRun = useCallback(() => {
-    const { system, user: userPrompt } = parsePrompt(injected)
-    const temp = activeSlot === 'A' ? tempA : tempB
-    run({ prompt: userPrompt, systemPrompt: system, model, temperature: temp, topP, apiKey, provider })
-  }, [injected, activeSlot, tempA, tempB, topP, model, apiKey, provider, run])
+    const { system, user: userText } = parsePrompt(injected)
+    const base = { prompt: userText, systemPrompt: system, model, topP, apiKey, provider }
+    if (viewMode === 'compare') {
+      streamA.run({ ...base, temperature: tempA })
+      streamB.run({ ...base, temperature: tempB })
+    } else if (viewMode === 'b') {
+      streamB.run({ ...base, temperature: tempB })
+    } else {
+      streamA.run({ ...base, temperature: tempA })
+    }
+  }, [injected, viewMode, tempA, tempB, topP, model, apiKey, provider, streamA, streamB])
 
   const handleSave = useCallback(() => { saveVersion(promptContent); setIsSaved(true) }, [promptContent, saveVersion])
   const handleFork = useCallback(() => forkVersion(activeId), [forkVersion, activeId])
@@ -93,10 +124,10 @@ export default function App() {
   }, [user, createWorkspace])
 
   useMenuActions(useMemo(() => ({
-    run: handleRun, stop, save: handleSave, fork: handleFork, 'new-prompt': handleNewPrompt,
-  }), [handleRun, stop, handleSave, handleFork, handleNewPrompt]))
+    run: handleRun, stop: stopAll, save: handleSave, fork: handleFork, 'new-prompt': handleNewPrompt,
+  }), [handleRun, stopAll, handleSave, handleFork, handleNewPrompt]))
 
-  const { user: userPrompt } = parsePrompt(injected)
+  const { system: systemPrompt, user: userPrompt } = parsePrompt(injected)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
@@ -104,22 +135,26 @@ export default function App() {
         provider={provider} onProviderChange={setProvider}
         model={model} onModelChange={setModel}
         apiKey={apiKey} onApiKeyChange={handleApiKeyChange}
-        onRun={handleRun} onStop={stop}
+        onRun={handleRun} onStop={stopAll}
         isStreaming={isStreaming}
         tokenCount={tokenCount} tokenLimit={1000}
         onSave={handleSave} onFork={handleFork} onNewPrompt={handleNewPrompt}
+        onOpenSettings={() => setShowSettings(true)}
+        onOpenExport={() => setShowExport(true)}
       />
 
       <UpdateBanner
         status={updater.status}
         version={updater.version}
         percent={updater.percent}
+        error={updater.error}
         onDownload={updater.download}
         onInstall={updater.install}
       />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar
+          width={sidebarWidth} onWidthChange={setSidebarWidth}
           versions={versions} activeId={activeId}
           onSelectVersion={handleVersionSelect} onForkVersion={forkVersion}
           variables={variables} onVariableChange={handleVariableChange}
@@ -138,20 +173,24 @@ export default function App() {
           currentPrompt={promptContent}
         />
 
-        <EditorPane content={promptContent} onChange={handleEditorChange} isSaved={isSaved} />
+        <EditorPane
+          content={promptContent} onChange={handleEditorChange} isSaved={isSaved}
+          variables={variables} fontSize={fontSize}
+          monacoTheme={THEMES[themeId]?.monacoTheme ?? 'promptflow-dark'}
+        />
 
         <PreviewPane
-          userPrompt={userPrompt} output={output}
-          isStreaming={isStreaming} error={error} latency={latency}
+          userPrompt={userPrompt}
+          streamA={streamA} streamB={streamB}
           tempA={tempA} onTempAChange={setTempA}
           tempB={tempB} onTempBChange={setTempB}
           topP={topP} onTopPChange={setTopP}
-          activeSlot={activeSlot} onSlotChange={setActiveSlot}
+          viewMode={viewMode} onViewModeChange={setViewMode}
         />
       </div>
 
       <StatusBar
-        model={model} latency={latency}
+        model={model} latency={streamA.latency ?? streamB.latency}
         lineCount={promptContent.split('\n').length}
         varCount={Object.keys(variables).length}
         isConnected={!!apiKey}
@@ -162,6 +201,28 @@ export default function App() {
           onClose={() => setShowAuth(false)}
           onSignIn={signIn}
           onSignUp={signUp}
+        />
+      )}
+
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          fontSize={fontSize}
+          onFontSizeChange={handleFontSizeChange}
+          themeId={themeId}
+          onThemeChange={handleThemeChange}
+        />
+      )}
+
+      {showExport && (
+        <CodeExportModal
+          onClose={() => setShowExport(false)}
+          provider={provider}
+          model={model}
+          systemPrompt={systemPrompt}
+          userPrompt={userPrompt}
+          temperature={viewMode === 'b' ? tempB : tempA}
+          topP={topP}
         />
       )}
     </div>

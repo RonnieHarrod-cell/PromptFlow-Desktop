@@ -90,7 +90,7 @@ const overlayStyle = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
 const modalStyle = {
-    background: '#1a1a20',
+    background: '#28283a',
     border: '0.5px solid rgba(255,255,255,0.12)',
     borderRadius: 12, padding: '20px 24px',
     width: 340, boxShadow: '0 16px 48px rgba(0,0,0,0.6)',

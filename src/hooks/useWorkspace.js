@@ -7,7 +7,7 @@ import {
 } from 'firebase/auth'
 import {
   collection, doc, addDoc, setDoc, getDocs, getDoc,
-  onSnapshot, query, where, orderBy,
+  onSnapshot, query, where, orderBy, limit,
   serverTimestamp, deleteDoc, updateDoc,
 } from 'firebase/firestore'
 import { auth, db, isFirebaseConfigured } from '../lib/firebase.js'
@@ -174,4 +174,41 @@ export function useWorkspace(workspaceId) {
   }, [workspaceId])
 
   return { workspace, versions, loading, error, pushVersion, deleteVersion }
+}
+
+// ── Workspace chat (real-time) ────────────────────────────────────────────────
+export function useWorkspaceChat(workspaceId) {
+  const [messages, setMessages] = useState([])
+
+  useEffect(() => {
+    if (!workspaceId || !isFirebaseConfigured()) return
+
+    const q = query(
+      collection(db, 'workspaces', workspaceId, 'chat'),
+      orderBy('createdAt', 'asc'),
+      limit(100)
+    )
+
+    const unsub = onSnapshot(q, (snap) => {
+      setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    })
+
+    return unsub
+  }, [workspaceId])
+
+  const sendMessage = useCallback(async (text, senderId, senderEmail) => {
+    if (!isFirebaseConfigured() || !workspaceId || !text.trim()) return
+    try {
+      await addDoc(collection(db, 'workspaces', workspaceId, 'chat'), {
+        text: text.trim(),
+        senderId,
+        senderEmail,
+        createdAt: serverTimestamp(),
+      })
+    } catch (e) {
+      console.error('Chat send failed:', e.message)
+    }
+  }, [workspaceId])
+
+  return { messages, sendMessage }
 }

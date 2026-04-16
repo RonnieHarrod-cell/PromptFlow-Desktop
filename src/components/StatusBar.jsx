@@ -4,7 +4,7 @@ export function StatusBar({ model, latency, lineCount, varCount, isConnected }) 
     return (
         <div style={{
             display: 'flex', alignItems: 'center', gap: '14px',
-            padding: '0 12px', height: '22px',
+            padding: '0 14px', height: '24px',
             background: 'var(--color-bg-secondary)',
             borderTop: '0.5px solid var(--color-border)',
             flexShrink: 0,
