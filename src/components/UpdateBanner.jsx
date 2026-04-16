@@ -61,7 +61,10 @@ export function UpdateBanner({ status, version, percent, error, onDownload, onIn
             {status === 'error' && (
                 <>
                     <span style={{ flex: 1 }}>
-                        Error checking for updates: {error?.message || (typeof error === 'string' ? error : JSON.stringify(error))}
+                        Error checking for updates: {
+                          error?.message || 
+                          (typeof error === 'string' ? error : (error ? JSON.stringify(error) : 'Internal error'))
+                        }
                     </span>
                     <button onClick={() => { window.location.reload() }} style={{ ...btnStyle, background: 'rgba(248,113,113,0.2)', color: '#f87171', borderColor: 'rgba(248,113,113,0.35)' }}>
                         Retry
