@@ -3,7 +3,7 @@ name: Build PromptFlow Studio
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    tags: ["v*"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -15,7 +15,6 @@ permissions:
   contents: write
 
 jobs:
-
   build-linux:
     name: Linux (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
@@ -36,7 +35,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: "24"
 
       - name: Check Secrets
         shell: bash
@@ -153,7 +152,7 @@ jobs:
           path: release-artifacts/*
           retention-days: 7
 
-    build-macos:
+  build-macos:
     name: macOS (${{ matrix.arch }})
     runs-on: macos-latest
     environment: Build
@@ -167,7 +166,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: "24"
 
       - name: Install dependencies
         run: npm install
@@ -229,7 +228,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: "24"
 
       - name: Check Secrets
         shell: bash
