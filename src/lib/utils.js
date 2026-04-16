@@ -35,6 +35,50 @@ export function formatTokens(count, limit = 1000) {
  */
 export const PROMPT_LANGUAGE_ID = 'promptflow'
 
+export function registerAllMonacoThemes(monaco) {
+    const variants = [
+        {
+            name: 'promptflow-darker',
+            bg: '#131316', lineHL: '#1a1a1f', indent: '#1e1e24',
+            lineNum: '#4e4e5a', lineNumActive: '#8e8e9a',
+        },
+        {
+            name: 'promptflow-midnight',
+            bg: '#161b22', lineHL: '#1c2230', indent: '#22293a',
+            lineNum: '#4a5568', lineNumActive: '#8b9eb8',
+        },
+        {
+            name: 'promptflow-mocha',
+            bg: '#252019', lineHL: '#2c261f', indent: '#332e26',
+            lineNum: '#5e5242', lineNumActive: '#a0927a',
+        },
+    ]
+
+    const sharedRules = [
+        { token: 'variable', foreground: '#F59E0B', fontStyle: 'bold' },
+        { token: 'comment',  foreground: '#606070' },
+        { token: 'string',   foreground: '#3ecf8e' },
+    ]
+
+    variants.forEach(({ name, bg, lineHL, indent, lineNum, lineNumActive }) => {
+        monaco.editor.defineTheme(name, {
+            base: 'vs-dark',
+            inherit: true,
+            rules: sharedRules,
+            colors: {
+                'editor.background':                  bg,
+                'editor.foreground':                  '#e8e8ed',
+                'editorLineNumber.foreground':         lineNum,
+                'editorLineNumber.activeForeground':   lineNumActive,
+                'editor.lineHighlightBackground':      lineHL,
+                'editorCursor.foreground':             '#7c6cfc',
+                'editor.selectionBackground':          '#7c6cfc33',
+                'editorIndentGuide.background':        indent,
+            },
+        })
+    })
+}
+
 export function registerPromptLanguage(monaco) {
     monaco.languages.register({ id: PROMPT_LANGUAGE_ID })
 
@@ -54,18 +98,18 @@ export function registerPromptLanguage(monaco) {
         inherit: true,
         rules: [
             { token: 'variable', foreground: '#F59E0B', fontStyle: 'bold' },
-            { token: 'comment', foreground: '#4e4e5a' },
+            { token: 'comment', foreground: '#606070' },
             { token: 'string', foreground: '#3ecf8e' },
         ],
         colors: {
-            'editor.background': '#131316',
-            'editor.foreground': '#e8e8ed',
-            'editorLineNumber.foreground': '#4e4e5a',
-            'editorLineNumber.activeForeground': '#8e8e9a',
-            'editor.lineHighlightBackground': '#1a1a1f',
+            'editor.background': '#22222a',
+            'editor.foreground': '#eaeaef',
+            'editorLineNumber.foreground': '#606070',
+            'editorLineNumber.activeForeground': '#9494a4',
+            'editor.lineHighlightBackground': '#28282f',
             'editorCursor.foreground': '#7c6cfc',
             'editor.selectionBackground': '#7c6cfc33',
-            'editorIndentGuide.background': '#1e1e24',
+            'editorIndentGuide.background': '#2e2e38',
         },
     })
 }
