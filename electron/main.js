@@ -74,13 +74,7 @@ function initAutoUpdater() {
 
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
-
-  // Explicitly set provider if app-update.yml is missing/not-loaded correctly
-  autoUpdater.setFeedURL({
-    provider: 'github',
-    owner: 'RonnieHarrod-cell',
-    repo: 'PromptFlow-Desktop'
-  })
+  autoUpdater.allowPrerelease = true
 
   autoUpdater.on('checking-for-update', () => {
     mainWindow?.webContents.send('updater:checking')
@@ -111,7 +105,7 @@ function initAutoUpdater() {
 
   autoUpdater.on('error', (err) => {
     const errorData = {
-      message: err?.message || String(err),
+      message: err?.message || String(err || 'Unknown updater error'),
       name: err?.name || 'UpdateError',
       stack: isDev ? err?.stack : undefined
     }
@@ -119,7 +113,9 @@ function initAutoUpdater() {
     mainWindow?.webContents.send('updater:error', errorData)
   })
 
-  autoUpdater.checkForUpdates()
+  autoUpdater.checkForUpdates().catch(err => {
+    console.error('Failed to start update check:', err)
+  })
 
   // IPC handlers
   ipcMain.handle('updater:download', () => autoUpdater.downloadUpdate())
