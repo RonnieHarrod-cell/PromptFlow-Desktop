@@ -153,6 +153,65 @@ jobs:
           path: release-artifacts/*
           retention-days: 7
 
+    build-macos:
+    name: macOS (${{ matrix.arch }})
+    runs-on: macos-latest
+    environment: Build
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create .env
+        run: |
+          echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" > .env
+          echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}" >> .env
+          echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}" >> .env
+          echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}" >> .env
+          echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}" >> .env
+          echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}" >> .env
+
+      - name: Build Vite
+        run: npx vite build
+        env:
+          NODE_ENV: Build
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+
+      - name: Build macOS app
+        run: npx electron-builder --mac --${{ matrix.arch }} --publish never
+
+      - name: List dist-electron
+        run: ls -lh dist-electron/
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p release-artifacts
+          VERSION=$(node -p "require('./package.json').version")
+          find dist-electron -maxdepth 1 -name "*.dmg" \
+            -exec cp {} "release-artifacts/PromptFlow-${VERSION}-${{ matrix.arch }}.dmg" \;
+          ls -lh release-artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: release-artifacts/*.dmg
+          retention-days: 7
+
   build-windows:
     name: Windows (${{ matrix.arch }})
     runs-on: windows-latest
