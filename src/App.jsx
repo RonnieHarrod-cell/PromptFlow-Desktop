@@ -105,6 +105,30 @@ export default function App() {
   const handleVariableChange = useCallback((key, val) => setVariables(prev => ({ ...prev, [key]: val })), [])
   const handleApiKeyChange = useCallback((key) => saveApiKey(key), [saveApiKey])
 
+  const handleOptimise = useCallback(async (content) => {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_GROQ_OPTIMISE_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        stream: false,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert prompt engineer. Return an improved, optimized version of the prompt the user provides. Preserve any section headings (like # System Prompt or # User Message) and {{variable}} placeholders exactly. Return ONLY the optimized prompt with no explanation or preamble.',
+          },
+          { role: 'user', content },
+        ],
+      }),
+    })
+    if (!res.ok) throw new Error(`Groq API error ${res.status}: ${await res.text()}`)
+    const data = await res.json()
+    return data.choices?.[0]?.message?.content ?? content
+  }, [])
+
   // Workspace actions
   const handlePushVersion = useCallback(async ({ label, content }) => {
     if (!user || !activeWorkspaceId) return
@@ -177,6 +201,7 @@ export default function App() {
           content={promptContent} onChange={handleEditorChange} isSaved={isSaved}
           variables={variables} fontSize={fontSize}
           monacoTheme={THEMES[themeId]?.monacoTheme ?? 'promptflow-dark'}
+          onOptimise={handleOptimise}
         />
 
         <PreviewPane
