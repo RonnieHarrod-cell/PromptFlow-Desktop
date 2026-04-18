@@ -1,13 +1,30 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import Editor, { loader } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor'
 import { registerPromptLanguage, registerAllMonacoThemes, PROMPT_LANGUAGE_ID } from '../lib/utils.js'
 
 loader.config({ monaco })
 
-export function EditorPane({ content, onChange, isSaved, variables = {}, fontSize = 12, monacoTheme = 'promptflow-dark' }) {
+export function EditorPane({ content, onChange, isSaved, variables = {}, fontSize = 12, monacoTheme = 'promptflow-dark', onOptimise }) {
     const variablesRef = useRef(variables)
     const completionDisposable = useRef(null)
+    const [isOptimising, setIsOptimising] = useState(false)
+    const [optimiseError, setOptimiseError] = useState(null)
+
+    async function handleOptimise() {
+        if (!onOptimise || isOptimising) return
+        setIsOptimising(true)
+        setOptimiseError(null)
+        try {
+            const optimised = await onOptimise(content)
+            onChange(optimised)
+        } catch (err) {
+            setOptimiseError(err.message)
+            setTimeout(() => setOptimiseError(null), 4000)
+        } finally {
+            setIsOptimising(false)
+        }
+    }
 
     // Keep the ref in sync with the latest variables without re-registering the provider
     useEffect(() => {
@@ -87,6 +104,32 @@ export function EditorPane({ content, onChange, isSaved, variables = {}, fontSiz
                     background: isSaved ? 'var(--color-green)' : 'var(--color-amber)',
                     opacity: 0.8,
                 }} />
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {optimiseError && (
+                        <span style={{ fontSize: 11, color: 'var(--color-red, #f87171)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {optimiseError}
+                        </span>
+                    )}
+                    <button
+                        onClick={handleOptimise}
+                        disabled={isOptimising}
+                        style={{
+                            padding: '3px 10px',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            borderRadius: 4,
+                            border: '1px solid var(--color-border)',
+                            background: 'transparent',
+                            color: isOptimising ? 'var(--color-text-secondary)' : 'var(--color-text)',
+                            cursor: isOptimising ? 'not-allowed' : 'pointer',
+                            opacity: isOptimising ? 0.6 : 1,
+                            letterSpacing: '0.02em',
+                            fontFamily: 'inherit',
+                        }}
+                    >
+                        {isOptimising ? 'Optimising…' : 'Optimise'}
+                    </button>
+                </div>
             </div>
 
             {/* Monaco Editor */}
